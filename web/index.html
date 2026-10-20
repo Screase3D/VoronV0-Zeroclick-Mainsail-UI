@@ -1,0 +1,1291 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Probe – Mainsail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --primary:#2196f3;--err:#ff5252;--ok:#4caf50;--warn:#fb8c00;
+  --font:"Roboto",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"Roboto Mono",ui-monospace,Menlo,Consolas,monospace;
+  --nav-w:220px;--bar-h:48px;
+}
+body[data-theme=dark]{
+  --app:#121212;--surface:#1e1e1e;--surface2:#272727;--surface3:#333;--line:rgba(255,255,255,.12);
+  --text:rgba(255,255,255,.87);--muted:rgba(255,255,255,.6);--hover:rgba(255,255,255,.08);
+  --input:rgba(255,255,255,.24);--console:#0f0f0f;--bed:#2a2a2a;--bed-line:#4a4a4a;
+}
+body[data-theme=light]{
+  --app:#f2f2f2;--surface:#fff;--surface2:#f5f5f5;--surface3:#e6e6e6;--line:rgba(0,0,0,.12);
+  --text:rgba(0,0,0,.87);--muted:rgba(0,0,0,.6);--hover:rgba(0,0,0,.05);
+  --input:rgba(0,0,0,.38);--console:#fafafa;--bed:#ececec;--bed-line:#bbb;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--app);color:var(--text);font:14px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+svg.i{width:24px;height:24px;fill:currentColor;flex:none}
+svg.i.s{width:20px;height:20px}
+
+/* ---------- Navigation (wie Mainsail) ---------- */
+.nav{position:fixed;inset:0 auto 0 0;width:var(--nav-w);background:var(--surface);border-right:1px solid var(--line);
+  z-index:30;display:flex;flex-direction:column;transition:transform .2s ease}
+.nav-head{height:var(--bar-h);display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--line)}
+.nav-head img{height:28px;max-width:40px;object-fit:contain}
+.nav-head .pn{font-weight:500;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav ul{list-style:none;margin:0;padding:8px 0;overflow-y:auto;flex:1}
+.nav li a{display:flex;align-items:center;gap:24px;height:44px;padding:0 16px;color:var(--muted);font-weight:500;font-size:13.5px;
+  letter-spacing:.01em;border-left:3px solid transparent}
+.nav li a:hover{background:var(--hover);color:var(--text)}
+.nav li a.active{color:var(--primary);background:color-mix(in srgb,var(--primary) 14%,transparent);border-left-color:var(--primary)}
+.nav-foot{padding:10px 16px;font-size:11px;color:var(--muted);border-top:1px solid var(--line)}
+.scrim{display:none}
+
+.topbar{position:fixed;top:0;left:var(--nav-w);right:0;height:var(--bar-h);z-index:20;display:flex;align-items:center;gap:6px;
+  padding:0 8px 0 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.topbar h1{font-size:18px;font-weight:500;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:12px;font-size:12px;font-weight:500;
+  background:var(--surface3);color:var(--muted);white-space:nowrap}
+.chip.ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.chip.warn{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}
+.chip.err{background:color-mix(in srgb,var(--err) 18%,transparent);color:var(--err)}
+.chip.info{background:color-mix(in srgb,var(--primary) 18%,transparent);color:var(--primary)}
+.ibtn{width:40px;height:40px;border-radius:50%;border:0;background:transparent;color:var(--muted);display:inline-flex;
+  align-items:center;justify-content:center;cursor:pointer}
+.ibtn:hover:not(:disabled){background:var(--hover);color:var(--text)}
+.ibtn.estop{color:var(--err)}
+.ibtn:disabled{opacity:.38;cursor:default}
+#menu{display:none}
+.grow{flex:1}
+
+main{margin-left:var(--nav-w);padding:calc(var(--bar-h) + 16px) 16px 24px}
+.cols{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+.col{flex:1 1 380px;min-width:0;display:flex;flex-direction:column;gap:16px}
+.full{flex-basis:100%}
+
+/* ---------- Panels ---------- */
+.panel{background:var(--surface);border-radius:4px;box-shadow:0 3px 1px -2px rgba(0,0,0,.2),0 2px 2px 0 rgba(0,0,0,.14),0 1px 5px 0 rgba(0,0,0,.12);overflow:hidden}
+.ph{height:48px;display:flex;align-items:center;gap:12px;padding:0 4px 0 16px;background:var(--surface2);cursor:pointer;user-select:none}
+.ph .t{font-size:16px;font-weight:500}
+.ph .ibtn svg{transition:transform .2s}
+.panel.closed .pb{display:none}
+.panel.closed .ph .tog svg{transform:rotate(-90deg)}
+.pb{padding:16px}
+.panel.accent{box-shadow:0 0 0 2px var(--primary)}
+.sub{font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px}
+.sub:first-child{margin-top:0}
+
+.tbl{width:100%;border-collapse:collapse}
+.tbl td{padding:7px 0;border-bottom:1px solid var(--line)}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--muted)}
+.tbl td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border:0;border-radius:4px;
+  font:500 13px/1 var(--font);letter-spacing:.0892em;text-transform:uppercase;cursor:pointer;color:var(--text);background:var(--surface3);
+  box-shadow:0 3px 1px -2px rgba(0,0,0,.2),0 2px 2px 0 rgba(0,0,0,.14),0 1px 5px 0 rgba(0,0,0,.12);white-space:nowrap}
+.btn:hover:not(:disabled){filter:brightness(1.15)}
+.btn:disabled{opacity:.38;cursor:default;box-shadow:none}
+.btn.primary{background:var(--primary);color:#fff}
+.btn.ok{background:var(--ok);color:#fff}
+.btn.warn{background:var(--warn);color:#fff}
+.btn.text{background:transparent;box-shadow:none;color:var(--primary);padding:0 8px}
+.btn.sm{height:28px;padding:0 10px;font-size:12px}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.btns+.btns,.btns+.fields,.fields+.btns{margin-top:12px}
+
+.fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:14px 10px;margin-top:6px}
+.fld{position:relative;display:block}
+.fld>span{position:absolute;top:-8px;left:8px;padding:0 4px;font-size:11.5px;color:var(--muted);background:var(--surface);line-height:16px;
+  white-space:nowrap;max-width:calc(100% - 16px);overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.fld input,.fld select{width:100%;height:40px;padding:0 10px;border:1px solid var(--input);border-radius:4px;background:transparent;
+  color:var(--text);font:14px var(--font);font-variant-numeric:tabular-nums}
+.fld select option{background:var(--surface);color:var(--text)}
+.fld input:focus,.fld select:focus{outline:none;border:2px solid var(--primary);padding:0 9px}
+.fld.chg input,.fld.chg select{border-color:var(--warn)}
+.chk{display:inline-flex;align-items:center;gap:8px;color:var(--text);cursor:pointer}
+.chk input{width:18px;height:18px;accent-color:var(--primary)}
+
+.alert{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-radius:4px;border-left:4px solid;font-size:13.5px}
+.alert svg{margin-top:-1px}
+.alert.info{background:color-mix(in srgb,var(--primary) 12%,transparent);border-color:var(--primary)}
+.alert.warn{background:color-mix(in srgb,var(--warn) 14%,transparent);border-color:var(--warn)}
+.alert.err{background:color-mix(in srgb,var(--err) 12%,transparent);border-color:var(--err)}
+.alert.ok{background:color-mix(in srgb,var(--ok) 12%,transparent);border-color:var(--ok)}
+.alert .grow{min-width:0}
+.alert+.alert,.alert+*{margin-top:12px}
+.note{color:var(--muted);font-size:12.5px;margin:10px 0 0}
+.hide{display:none!important}
+
+.tabs{display:flex;border-bottom:1px solid var(--line);margin:-16px -16px 16px;overflow-x:auto}
+.tabs button{flex:1;min-width:max-content;height:44px;padding:0 14px;background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);
+  font:500 13px var(--font);letter-spacing:.0892em;text-transform:uppercase;cursor:pointer}
+.tabs button.on{color:var(--primary);border-bottom-color:var(--primary)}
+.tab{display:none}.tab.on{display:block}
+
+.zbig{font:500 34px/1.1 var(--font);font-variant-numeric:tabular-nums;margin:2px 0 12px}
+.zgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.zgrid .btn{padding:0;letter-spacing:0}
+
+.jog{display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,40px);gap:6px}
+.jog .btn{padding:0;height:40px}
+.jogwrap{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.zjog{display:grid;grid-template-rows:repeat(2,40px);gap:6px}
+.zjog .btn{width:56px;padding:0}
+
+.screw-row{display:grid;grid-template-columns:1.6fr 1fr 1fr auto auto;gap:8px;align-items:center;margin-bottom:14px}
+.prev{background:var(--surface2);border-radius:4px;padding:10px 12px;font-size:13px;margin-top:14px}
+.prev div{display:flex;justify-content:space-between;gap:10px;padding:2px 0}
+.prev span:first-child{color:var(--muted)}
+
+#bed{width:100%;max-width:440px;display:block;margin:4px auto 0}
+#bed text{font:6px var(--font);fill:var(--text)}
+.mesh{border-collapse:collapse;width:100%;table-layout:fixed;font:500 12px var(--mono)}
+.mesh td{text-align:center;padding:9px 0;border:1px solid var(--surface);color:#111}
+.legend{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:8px}
+
+#log{height:280px;overflow:auto;background:var(--console);border:1px solid var(--line);border-radius:4px;padding:8px 10px;
+  font:12.5px/1.45 var(--mono);white-space:pre-wrap;word-break:break-word}
+#log .cmd{color:var(--primary)}
+#log .e{color:var(--err)}
+.cons{display:flex;gap:8px;margin-top:12px}
+.cons .fld{flex:1}
+
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;display:none;align-items:center;justify-content:center;padding:16px}
+.modal.on{display:flex}
+.dlg{background:var(--surface);border-radius:4px;max-width:560px;width:100%;max-height:90vh;display:flex;flex-direction:column;
+  box-shadow:0 11px 15px -7px rgba(0,0,0,.2),0 24px 38px 3px rgba(0,0,0,.14),0 9px 46px 8px rgba(0,0,0,.12)}
+.dlg h3{margin:0;padding:16px 20px;font-size:18px;font-weight:500;background:var(--surface2)}
+.dlg .body{padding:16px 20px;overflow:auto}
+.dlg .acts{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--line)}
+.diff{width:100%;border-collapse:collapse;font-size:13px}
+.diff td{padding:5px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+.diff td:nth-child(2){color:var(--muted);text-decoration:line-through}
+.diff td:nth-child(3){color:var(--ok);font-weight:500}
+
+.snack{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:#323232;color:#fff;padding:12px 18px;
+  border-radius:4px;z-index:60;transition:transform .25s,opacity .25s;opacity:0;visibility:hidden;max-width:calc(100% - 32px);box-shadow:0 3px 5px -1px rgba(0,0,0,.2),0 6px 10px 0 rgba(0,0,0,.14)}
+.snack.on{transform:translateX(-50%) translateY(0);opacity:1;visibility:visible}
+
+@media (max-width:959px){
+  .nav{transform:translateX(-100%)}
+  .nav.open{transform:none;box-shadow:0 8px 10px -5px rgba(0,0,0,.2),0 16px 24px 2px rgba(0,0,0,.14)}
+  .scrim.on{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:25}
+  .topbar{left:0}
+  #menu{display:inline-flex}
+  main{margin-left:0;padding:calc(var(--bar-h) + 10px) 10px 20px}
+  .cols,.col{gap:10px}
+  .topbar h1{font-size:16px}
+}
+@media (max-width:420px){
+  .screw-row{grid-template-columns:1fr 1fr auto auto}
+  .screw-row .fld:first-child{grid-column:1/-1}
+  .chip .lbl{display:none}
+  #kchip{width:12px;height:12px;padding:0;margin:0 6px}
+}
+</style>
+</head>
+<body data-theme="dark">
+
+<nav class="nav" id="nav">
+  <div class="nav-head" id="navhead"><span id="logo"></span><span class="pn" id="pname">Mainsail</span></div>
+  <ul id="navlist"></ul>
+  <div class="nav-foot">voron0-dockprobe</div>
+</nav>
+<div class="scrim" id="scrim"></div>
+
+<header class="topbar">
+  <button class="ibtn" id="menu" title="Menü"><svg class="i" viewBox="0 0 24 24"><path d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z"/></svg></button>
+  <h1>Probe &amp; Kalibrierung</h1>
+  <span class="grow"></span>
+  <button class="ibtn" id="lang" title="Sprache / Language" style="font:500 13px var(--font);letter-spacing:.05em">EN</button>
+  <span class="chip" id="kchip" title="Klipper-Status"><span class="lbl" id="kstate">verbinde …</span></span>
+  <button class="ibtn" id="restart" title="Klipper neu starten (FIRMWARE_RESTART)"><svg class="i" viewBox="0 0 24 24"><path d="M12,4C14.1,4 16.1,4.8 17.6,6.3C20.7,9.4 20.7,14.5 17.6,17.6C15.8,19.5 13.3,20.2 10.9,19.9L11.4,17.9C13.1,18.1 14.9,17.5 16.2,16.2C18.5,13.9 18.5,10.1 16.2,7.7C15.1,6.6 13.5,6 12,6V10.6L7,5.6L12,0.6V4M6.3,17.6C3.7,15 3.3,11 5.1,7.9L6.6,9.4C5.5,11.6 5.9,14.4 7.8,16.2C8.3,16.7 8.9,17.1 9.6,17.4L9,19.4C8,19 7.1,18.4 6.3,17.6Z"/></svg></button>
+  <button class="ibtn estop" id="estop" title="Not-Aus"><svg class="i" viewBox="0 0 24 24"><path d="M8.27,3L3,8.27V15.73L8.27,21H15.73C17.5,19.24 21,15.73 21,15.73V8.27L15.73,3M9.1,5H14.9L19,9.1V14.9L14.9,19H9.1L5,14.9V9.1M11,15H13V17H11V15M11,7H13V13H11V7"/></svg></button>
+</header>
+
+<main>
+  <div class="cols">
+    <div class="full" id="alerts"></div>
+
+    <div class="col">
+      <section class="panel accent hide" id="mp">
+        <div class="ph"><span><svg class="i" viewBox="0 0 24 24"><path d="M11,2V4.07C7.38,4.53 4.53,7.38 4.07,11H2V13H4.07C4.53,16.62 7.38,19.47 11,19.93V22H13V19.93C16.62,19.47 19.47,16.62 19.93,13H22V11H19.93C19.47,7.38 16.62,4.53 13,4.07V2M11,6.08V8H13V6.09C15.5,6.5 17.5,8.5 17.92,11H16V13H17.91C17.5,15.5 15.5,17.5 13,17.92V16H11V17.91C8.5,17.5 6.5,15.5 6.08,13H8V11H6.09C6.5,8.5 8.5,6.5 11,6.08M12,11A1,1 0 0,0 11,12A1,1 0 0,0 12,13A1,1 0 0,0 13,12A1,1 0 0,0 12,11Z"/></svg></span><span class="t">Papiertest</span></div>
+        <div class="pb">
+          <div class="note" style="margin:0 0 4px">Papier unter die Düse legen, Z verstellen bis es leicht kratzt, dann ACCEPT.</div>
+          <div class="zbig" id="mpz">–</div>
+          <div class="zgrid">
+            <button class="btn mpb" data-g="TESTZ Z=-1">−1</button>
+            <button class="btn mpb" data-g="TESTZ Z=-0.1">−0,1</button>
+            <button class="btn mpb" data-g="TESTZ Z=-0.05">−0,05</button>
+            <button class="btn mpb" data-g="TESTZ Z=-0.01">−0,01</button>
+            <button class="btn mpb" data-g="TESTZ Z=+1">+1</button>
+            <button class="btn mpb" data-g="TESTZ Z=+0.1">+0,1</button>
+            <button class="btn mpb" data-g="TESTZ Z=+0.05">+0,05</button>
+            <button class="btn mpb" data-g="TESTZ Z=+0.01">+0,01</button>
+          </div>
+          <div class="btns">
+            <button class="btn ok mpb" data-g="ACCEPT">Accept</button>
+            <button class="btn mpb" data-g="ABORT">Abort</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" data-p="status">
+        <div class="ph"><span><svg class="i" viewBox="0 0 24 24"><path d="M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8M3.05,13H1V11H3.05C3.5,6.83 6.83,3.5 11,3.05V1H13V3.05C17.17,3.5 20.5,6.83 20.95,11H23V13H20.95C20.5,17.17 17.17,20.5 13,20.95V23H11V20.95C6.83,20.5 3.5,17.17 3.05,13M12,5A7,7 0 0,0 5,12A7,7 0 0,0 12,19A7,7 0 0,0 19,12A7,7 0 0,0 12,5Z"/></svg></span><span class="t">Probe-Status</span><span class="grow"></span><button class="ibtn tog"><svg class="i" viewBox="0 0 24 24"><path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/></svg></button></div>
+        <div class="pb">
+          <table class="tbl">
+            <tr><td>Probe</td><td id="s-probe">–</td></tr>
+            <tr><td>Probe-Schalter</td><td id="s-pin">–</td></tr>
+            <tr><td>Gehomed</td><td id="s-homed">–</td></tr>
+            <tr><td>Position</td><td id="s-pos">–</td></tr>
+            <tr><td>Bett</td><td id="s-bed">–</td></tr>
+            <tr><td>Extruder</td><td id="s-ext">–</td></tr>
+            <tr><td>Offsets x / y / z</td><td id="s-off">–</td></tr>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel" data-p="probe">
+        <div class="ph"><span><svg class="i" viewBox="0 0 24 24"><path d="M3,7V13A9,9 0 0,0 12,22A9,9 0 0,0 21,13V7H17V13A5,5 0 0,1 12,18A5,5 0 0,1 7,13V7M17,5H21V2H17M3,5H7V2H3"/></svg></span><span class="t">Probe</span><span class="grow"></span><button class="ibtn tog"><svg class="i" viewBox="0 0 24 24"><path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/></svg></button></div>
+        <div class="pb">
+          <div class="btns">
+            <button class="btn act" data-g="G28"><svg class="i s" viewBox="0 0 24 24"><path d="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z"/></svg> Home</button>
+            <button class="btn act" data-g="ATTACH_PROBE">Andocken</button>
+            <button class="btn act" data-g="DETACH_PROBE">Ablegen</button>
+            <button class="btn act" data-g="PROBE_STATUS">Prüfen</button>
+          </div>
+          <div class="sub" style="margin-top:20px">Messen</div>
+          <div class="btns" style="align-items:center">
+            <label class="fld" style="width:96px"><span>Samples</span><input id="acc-n" type="number" min="3" max="50" value="10"></label>
+            <button class="btn act" id="acc">Genauigkeit</button>
+            <button class="btn act" data-g="MEASURE_PROBE_OFFSET">z_offset messen</button>
+          </div>
+          <div id="probe-res"></div>
+          <div class="note">Reihenfolge: erst Z-Endstop-Papiertest, dann z_offset messen. Ergebnis ≈ 0 heißt: passt.</div>
+        </div>
+      </section>
+
+      <section class="panel" data-p="cal">
+        <div class="ph"><span><svg class="i" viewBox="0 0 24 24"><path d="M3,17V19H9V17H3M3,5V7H13V5H3M13,21V19H21V17H13V15H11V21H13M7,9V11H3V13H7V15H9V9H7M21,13V11H11V13H21M15,9H17V7H21V5H17V3H15V9Z"/></svg></span><span class="t">Kalibrierung</span><span class="grow"></span><button class="ibtn tog"><svg class="i" viewBox="0 0 24 24"><path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/></svg></button></div>
+        <div class="pb">
+          <div class="fields">
+            <label class="fld"><span>Bett °C</span><input id="cal-bed" type="number" value="60"></label>
+            <label class="fld"><span>Soak (min)</span><input id="cal-soak" type="number" value="10"></label>
+            <label class="fld"><span>Mesh-Profil</span><input id="cal-prof" type="text" value="default"></label>
+          </div>
+          <div class="btns" style="gap:20px">
+            <label class="chk"><input id="cal-screws" type="checkbox" checked> Schrauben</label>
+            <label class="chk"><input id="cal-mesh" type="checkbox" checked> Mesh</label>
+          </div>
+          <div class="btns">
+            <button class="btn primary act" id="cal"><svg class="i s" viewBox="0 0 24 24"><path d="M8,5.14V19.14L19,12.14L8,5.14Z"/></svg> Komplett-Kalibrierung</button>
+            <button class="btn act" data-g="CALIBRATE_Z_ENDSTOP">Z-Endstop (Papiertest)</button>
+          </div>
+          <div class="note">1. Schrauben ausrichten · 2. nach jedem Drehen Papiertest + SAVE_CONFIG · 3. z_offset messen · 4. Mesh + SAVE_CONFIG</div>
+        </div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" data-p="screws">
+        <div class="ph"><span><svg class="i" viewBox="0 0 24 24"><path d="M18,1.83C17.5,1.83 17,2 16.59,2.41C13.72,5.28 8,11 8,11L9.5,12.5L6,16H4L2,20L4,22L8,20V18L11.5,14.5L13,16C13,16 18.72,10.28 21.59,7.41C22.21,6.5 22.37,5.37 21.59,4.59L19.41,2.41C19,2 18.5,1.83 18,1.83M18,4L20,6L13,13L11,11L18,4Z"/></svg></span><span class="t">Bettschrauben</span><span class="grow"></span><button class="ibtn tog"><svg class="i" viewBox="0 0 24 24"><path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/></svg></button></div>
+        <div class="pb">
+          <div class="btns"><button class="btn primary act" id="screws">Schrauben messen</button></div>
+          <svg id="bed" viewBox="0 0 140 140"></svg>
+          <table class="tbl" id="screw-res"></table>
+          <div class="note">↻ im Uhrzeigersinn · ↺ gegen den Uhrzeigersinn · 00:15 = Vierteldrehung</div>
+        </div>
+      </section>
+
+      <section class="panel" data-p="mesh">
+        <div class="ph"><span><svg class="i" viewBox="0 0 24 24"><path d="M10,4V8H14V4H10M16,4V8H20V4H16M16,10V14H20V10H16M16,16V20H20V16H16M14,20V16H10V20H14M8,20V16H4V20H8M8,14V10H4V14H8M8,8V4H4V8H8M10,14H14V10H10V14M4,2H20A2,2 0 0,1 22,4V20A2,2 0 0,1 20,22H4C2.92,22 2,21.1 2,20V4A2,2 0 0,1 4,2Z"/></svg></span><span class="t">Bed Mesh</span><span class="grow"></span><button class="ibtn tog"><svg class="i" viewBox="0 0 24 24"><path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/></svg></button></div>
+        <div class="pb">
+          <div class="btns">
+            <button class="btn primary act" id="mesh">Mesh messen</button>
+            <button class="btn act" data-g="BED_MESH_CLEAR">Deaktivieren</button>
+            <a class="btn text" href="/heightmap">Heightmap</a>
+          </div>
+          <div class="note" id="mesh-info"></div>
+          <div id="mesh-tbl" style="margin-top:10px"></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" data-p="settings">
+        <div class="ph"><span><svg class="i" viewBox="0 0 24 24"><path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/></svg></span><span class="t">Einstellungen</span><span class="grow"></span><button class="ibtn tog"><svg class="i" viewBox="0 0 24 24"><path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/></svg></button></div>
+        <div class="pb">
+          <div class="tabs" id="tabs">
+            <button data-t="t-probe" class="on">Probe</button>
+            <button data-t="t-dock">Dock</button>
+            <button data-t="t-screws">Schrauben</button>
+            <button data-t="t-mesh">Mesh</button>
+          </div>
+          <div id="ed-msg"></div>
+
+          <div class="tab on" id="t-probe">
+            <div class="fields">
+              <label class="fld" style="grid-column:1/-1"><span>Probe-Pin</span><input data-k="pin" type="text"></label>
+              <label class="fld"><span>x_offset</span><input data-k="x_offset" type="number" step="0.1"></label>
+              <label class="fld"><span>y_offset</span><input data-k="y_offset" type="number" step="0.1"></label>
+              <label class="fld"><span>z_offset</span><input data-k="z_offset" type="number" step="0.001"></label>
+              <label class="fld"><span>Geschwindigkeit mm/s</span><input data-k="speed" type="number" step="0.5" min="0.5"></label>
+              <label class="fld"><span>Klipper-Meldungen</span><select data-k="mlang"><option value="de">Deutsch</option><option value="en">English</option></select></label>
+            </div>
+            <div class="note" id="z-src"></div>
+            <div class="note">x: links der Düse negativ · y: hinter der Düse positiv · z: Auslösehöhe der Probe</div>
+          </div>
+
+          <div class="tab" id="t-dock">
+            <div class="fields">
+              <label class="fld"><span>Dock X</span><input data-k="dock_x" type="number" step="0.1"></label>
+              <label class="fld"><span>Dock Y</span><input data-k="dock_y" type="number" step="0.1"></label>
+              <label class="fld"><span>Anfahrweg rechts</span><input data-k="approach_dx" type="number" step="1"></label>
+              <label class="fld"><span>Y-Bahn / Lösen</span><input data-k="staging_y" type="number" step="1"></label>
+              <label class="fld"><span>Z für Dock-Fahrten</span><input data-k="safe_z" type="number" step="0.5"></label>
+              <label class="fld"><span>Verfahren mm/min</span><input data-k="travel_f" type="number" step="100"></label>
+              <label class="fld"><span>Dock mm/min</span><input data-k="dock_f" type="number" step="100"></label>
+            </div>
+            <div class="btns" style="margin-top:14px">
+              <label class="chk"><input data-k="verify" type="checkbox"> Andock-Status über Probe-Pin prüfen</label>
+            </div>
+            <div class="btns"><button class="btn sm pos" data-pos="dock"><svg class="i s" viewBox="0 0 24 24"><path d="M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5M12,2A7,7 0 0,0 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9A7,7 0 0,0 12,2Z"/></svg> Aktuelle Position als Dock</button></div>
+          </div>
+
+          <div class="tab" id="t-screws">
+            <div class="note" style="margin:0 0 14px">Düsenposition, wenn die Düse genau über der Schraube steht. Mit den Pfeilen hinfahren und übernehmen.</div>
+            <div id="screw-ed"></div>
+            <div class="btns">
+              <button class="btn sm" id="screw-add"><svg class="i s" viewBox="0 0 24 24"><path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/></svg> Schraube</button>
+              <label class="fld" style="width:130px"><span>Gewinde</span>
+                <select data-k="screw_thread"><option>CW-M3</option><option>CCW-M3</option><option>CW-M4</option><option>CCW-M4</option><option>CW-M5</option><option>CCW-M5</option></select></label>
+            </div>
+          </div>
+
+          <div class="tab" id="t-mesh">
+            <div class="fields">
+              <label class="fld"><span>Randabstand mm</span><input data-k="margin" type="number" step="0.5" min="0"></label>
+              <label class="fld"><span>Punkte X</span><input data-k="count_x" type="number" min="3" max="15"></label>
+              <label class="fld"><span>Punkte Y</span><input data-k="count_y" type="number" min="3" max="15"></label>
+            </div>
+            <div class="note">mesh_min/max, Referenzpunkt und horizontal_move_z werden aus Offsets und Verfahrbereich berechnet.</div>
+          </div>
+
+          <div class="sub" style="margin-top:20px">Verfahren</div>
+          <div class="jogwrap">
+            <div class="jog">
+              <span></span><button class="btn jg" data-j="Y" data-d="1"><svg class="i s" viewBox="0 0 24 24"><path d="M13,20H11V8L5.5,13.5L4.08,12.08L12,4.16L19.92,12.08L18.5,13.5L13,8V20Z"/></svg></button><span></span>
+              <button class="btn jg" data-j="X" data-d="-1"><svg class="i s" viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"/></svg></button>
+              <button class="btn act" data-g="G28" title="Home"><svg class="i s" viewBox="0 0 24 24"><path d="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z"/></svg></button>
+              <button class="btn jg" data-j="X" data-d="1"><svg class="i s" viewBox="0 0 24 24"><path d="M4,11V13H16L10.5,18.5L11.92,19.92L19.84,12L11.92,4.08L10.5,5.5L16,11H4Z"/></svg></button>
+              <span></span><button class="btn jg" data-j="Y" data-d="-1"><svg class="i s" viewBox="0 0 24 24"><path d="M11,4H13V16L18.5,10.5L19.92,11.92L12,19.84L4.08,11.92L5.5,10.5L11,16V4Z"/></svg></button><span></span>
+            </div>
+            <div class="zjog">
+              <button class="btn jg" data-j="Z" data-d="1">Z+</button>
+              <button class="btn jg" data-j="Z" data-d="-1">Z−</button>
+            </div>
+            <label class="fld" style="width:90px"><span>Schritt mm</span>
+              <select id="jstep"><option>0.1</option><option>1</option><option selected>10</option></select></label>
+          </div>
+
+          <div class="prev" id="ed-prev"></div>
+          <div class="btns" style="margin-top:14px">
+            <button class="btn primary" id="ed-save"><svg class="i s" viewBox="0 0 24 24"><path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/></svg> Speichern</button>
+            <button class="btn" id="ed-reset">Verwerfen</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel full" data-p="console">
+      <div class="ph"><span><svg class="i" viewBox="0 0 24 24"><path d="M13,19V16H21V19H13M8.5,13L2.47,7H6.71L11.67,11.95C12.25,12.54 12.25,13.5 11.67,14.07L6.74,19H2.5L8.5,13Z"/></svg></span><span class="t">Konsole</span><span class="grow"></span><button class="ibtn tog"><svg class="i" viewBox="0 0 24 24"><path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/></svg></button></div>
+      <div class="pb">
+        <div id="log"></div>
+        <form class="cons" id="cons">
+          <label class="fld"><span>G-Code</span><input id="cons-in" type="text" autocomplete="off" placeholder="z. B. QUERY_PROBE"></label>
+          <button class="btn primary" type="submit">Senden</button>
+        </form>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div class="modal" id="modal"><div class="dlg">
+  <h3 id="m-title"></h3>
+  <div class="body" id="m-body"></div>
+  <div class="acts"><button class="btn text" id="m-no">Abbrechen</button><button class="btn primary" id="m-yes">OK</button></div>
+</div></div>
+<div class="snack" id="snack"></div>
+
+<script>
+"use strict";
+const ICON = {"mdiViewDashboardOutline":"M19,5V7H15V5H19M9,5V11H5V5H9M19,13V19H15V13H19M9,17V19H5V17H9M21,3H13V9H21V3M11,3H3V13H11V3M21,11H13V21H21V11M11,15H3V21H11V15Z","mdiWebcam":"M12,2A7,7 0 0,1 19,9A7,7 0 0,1 12,16A7,7 0 0,1 5,9A7,7 0 0,1 12,2M12,4A5,5 0 0,0 7,9A5,5 0 0,0 12,14A5,5 0 0,0 17,9A5,5 0 0,0 12,4M12,6A3,3 0 0,1 15,9A3,3 0 0,1 12,12A3,3 0 0,1 9,9A3,3 0 0,1 12,6M6,22A2,2 0 0,1 4,20C4,19.62 4.1,19.27 4.29,18.97L6.11,15.81C7.69,17.17 9.75,18 12,18C14.25,18 16.31,17.17 17.89,15.81L19.71,18.97C19.9,19.27 20,19.62 20,20A2,2 0 0,1 18,22H6Z","mdiConsoleLine":"M13,19V16H21V19H13M8.5,13L2.47,7H6.71L11.67,11.95C12.25,12.54 12.25,13.5 11.67,14.07L6.74,19H2.5L8.5,13Z","mdiGrid":"M10,4V8H14V4H10M16,4V8H20V4H16M16,10V14H20V10H16M16,16V20H20V16H16M14,20V16H10V20H14M8,20V16H4V20H8M8,14V10H4V14H8M8,8V4H4V8H8M10,14H14V10H10V14M4,2H20A2,2 0 0,1 22,4V20A2,2 0 0,1 20,22H4C2.92,22 2,21.1 2,20V4A2,2 0 0,1 4,2Z","mdiFileDocumentMultipleOutline":"M16 0H8C6.9 0 6 .9 6 2V18C6 19.1 6.9 20 8 20H20C21.1 20 22 19.1 22 18V6L16 0M20 18H8V2H15V7H20V18M4 4V22H20V24H4C2.9 24 2 23.1 2 22V4H4M10 10V12H18V10H10M10 14V16H15V14H10Z","mdiVideo3d":"M5,7H9A2,2 0 0,1 11,9V15A2,2 0 0,1 9,17H5V15H9V13H6V11H9V9H5V7M13,7H16A3,3 0 0,1 19,10V14A3,3 0 0,1 16,17H13V7M16,15A1,1 0 0,0 17,14V10A1,1 0 0,0 16,9H15V15H16Z","mdiHistory":"M13.5,8H12V13L16.28,15.54L17,14.33L13.5,12.25V8M13,3A9,9 0 0,0 4,12H1L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3","mdiWrench":"M22.7,19L13.6,9.9C14.5,7.6 14,4.9 12.1,3C10.1,1 7.1,0.6 4.7,1.7L9,6L6,9L1.6,4.7C0.4,7.1 0.9,10.1 2.9,12.1C4.8,14 7.5,14.5 9.8,13.6L18.9,22.7C19.3,23.1 19.9,23.1 20.3,22.7L22.6,20.4C23.1,20 23.1,19.3 22.7,19Z","mdiCrosshairsGps":"M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8M3.05,13H1V11H3.05C3.5,6.83 6.83,3.5 11,3.05V1H13V3.05C17.17,3.5 20.5,6.83 20.95,11H23V13H20.95C20.5,17.17 17.17,20.5 13,20.95V23H11V20.95C6.83,20.5 3.5,17.17 3.05,13M12,5A7,7 0 0,0 5,12A7,7 0 0,0 12,19A7,7 0 0,0 19,12A7,7 0 0,0 12,5Z","mdiMenu":"M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z","mdiPower":"M16.56,5.44L15.11,6.89C16.84,7.94 18,9.83 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12C6,9.83 7.16,7.94 8.88,6.88L7.44,5.44C5.36,6.88 4,9.28 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12C20,9.28 18.64,6.88 16.56,5.44M13,3H11V13H13","mdiRestart":"M12,4C14.1,4 16.1,4.8 17.6,6.3C20.7,9.4 20.7,14.5 17.6,17.6C15.8,19.5 13.3,20.2 10.9,19.9L11.4,17.9C13.1,18.1 14.9,17.5 16.2,16.2C18.5,13.9 18.5,10.1 16.2,7.7C15.1,6.6 13.5,6 12,6V10.6L7,5.6L12,0.6V4M6.3,17.6C3.7,15 3.3,11 5.1,7.9L6.6,9.4C5.5,11.6 5.9,14.4 7.8,16.2C8.3,16.7 8.9,17.1 9.6,17.4L9,19.4C8,19 7.1,18.4 6.3,17.6Z","mdiAlertOctagonOutline":"M8.27,3L3,8.27V15.73L8.27,21H15.73C17.5,19.24 21,15.73 21,15.73V8.27L15.73,3M9.1,5H14.9L19,9.1V14.9L14.9,19H9.1L5,14.9V9.1M11,15H13V17H11V15M11,7H13V13H11V7","mdiChevronDown":"M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z","mdiHome":"M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z","mdiMagnet":"M3,7V13A9,9 0 0,0 12,22A9,9 0 0,0 21,13V7H17V13A5,5 0 0,1 12,18A5,5 0 0,1 7,13V7M17,5H21V2H17M3,5H7V2H3","mdiTarget":"M11,2V4.07C7.38,4.53 4.53,7.38 4.07,11H2V13H4.07C4.53,16.62 7.38,19.47 11,19.93V22H13V19.93C16.62,19.47 19.47,16.62 19.93,13H22V11H19.93C19.47,7.38 16.62,4.53 13,4.07V2M11,6.08V8H13V6.09C15.5,6.5 17.5,8.5 17.92,11H16V13H17.91C17.5,15.5 15.5,17.5 13,17.92V16H11V17.91C8.5,17.5 6.5,15.5 6.08,13H8V11H6.09C6.5,8.5 8.5,6.5 11,6.08M12,11A1,1 0 0,0 11,12A1,1 0 0,0 12,13A1,1 0 0,0 13,12A1,1 0 0,0 12,11Z","mdiScrewdriver":"M18,1.83C17.5,1.83 17,2 16.59,2.41C13.72,5.28 8,11 8,11L9.5,12.5L6,16H4L2,20L4,22L8,20V18L11.5,14.5L13,16C13,16 18.72,10.28 21.59,7.41C22.21,6.5 22.37,5.37 21.59,4.59L19.41,2.41C19,2 18.5,1.83 18,1.83M18,4L20,6L13,13L11,11L18,4Z","mdiContentSave":"M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z","mdiCrosshairs":"M3.05,13H1V11H3.05C3.5,6.83 6.83,3.5 11,3.05V1H13V3.05C17.17,3.5 20.5,6.83 20.95,11H23V13H20.95C20.5,17.17 17.17,20.5 13,20.95V23H11V20.95C6.83,20.5 3.5,17.17 3.05,13M12,5A7,7 0 0,0 5,12A7,7 0 0,0 12,19A7,7 0 0,0 19,12A7,7 0 0,0 12,5Z","mdiArrowUp":"M13,20H11V8L5.5,13.5L4.08,12.08L12,4.16L19.92,12.08L18.5,13.5L13,8V20Z","mdiArrowDown":"M11,4H13V16L18.5,10.5L19.92,11.92L12,19.84L4.08,11.92L5.5,10.5L11,16V4Z","mdiArrowLeft":"M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z","mdiArrowRight":"M4,11V13H16L10.5,18.5L11.92,19.92L19.84,12L11.92,4.08L10.5,5.5L16,11H4Z","mdiArrowUpBold":"M15,20H9V12H4.16L12,4.16L19.84,12H15V20Z","mdiArrowDownBold":"M9,4H15V12H19.84L12,19.84L4.16,12H9V4Z","mdiPlus":"M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z","mdiDelete":"M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z","mdiCog":"M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z","mdiInformationOutline":"M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z","mdiCheck":"M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z","mdiAlertOutline":"M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16","mdiMapMarker":"M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5M12,2A7,7 0 0,0 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9A7,7 0 0,0 12,2Z","mdiTune":"M3,17V19H9V17H3M3,5V7H13V5H3M13,21V19H21V17H13V15H11V21H13M7,9V11H3V13H7V15H9V9H7M21,13V11H11V13H21M15,9H17V7H21V5H17V3H15V9Z","mdiLinkVariant":"M10.59,13.41C11,13.8 11,14.44 10.59,14.83C10.2,15.22 9.56,15.22 9.17,14.83C7.22,12.88 7.22,9.71 9.17,7.76V7.76L12.71,4.22C14.66,2.27 17.83,2.27 19.78,4.22C21.73,6.17 21.73,9.34 19.78,11.29L18.29,12.78C18.3,11.96 18.17,11.14 17.89,10.36L18.36,9.88C19.54,8.71 19.54,6.81 18.36,5.64C17.19,4.46 15.29,4.46 14.12,5.64L10.59,9.17C9.41,10.34 9.41,12.24 10.59,13.41M13.41,9.17C13.8,8.78 14.44,8.78 14.83,9.17C16.78,11.12 16.78,14.29 14.83,16.24V16.24L11.29,19.78C9.34,21.73 6.17,21.73 4.22,19.78C2.27,17.83 2.27,14.66 4.22,12.71L5.71,11.22C5.7,12.04 5.83,12.86 6.11,13.65L5.64,14.12C4.46,15.29 4.46,17.19 5.64,18.36C6.81,19.54 8.71,19.54 9.88,18.36L13.41,14.83C14.59,13.66 14.59,11.76 13.41,10.59C13,10.2 13,9.56 13.41,9.17Z","mdiThermometer":"M15 13V5A3 3 0 0 0 9 5V13A5 5 0 1 0 15 13M12 4A1 1 0 0 1 13 5V8H11V5A1 1 0 0 1 12 4Z","mdiPlay":"M8,5.14V19.14L19,12.14L8,5.14Z","mdiClose":"M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z","mdiChevronLeft":"M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z"};
+const SETTINGS = "probe_dock_settings.cfg";
+const $ = (id) => document.getElementById(id);
+const icon = (n, cls = "") => `<svg class="i ${cls}" viewBox="0 0 24 24"><path d="${ICON[n] || ""}"/></svg>`;
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("dockprobe." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("dockprobe." + k, JSON.stringify(v)); } catch { /* egal */ } },
+};
+
+// =====================================================================
+// Sprache (Deutsch ist Quelltext, Englisch per Wörterbuch)
+// =====================================================================
+const T_EN = {
+  // Navigation / Rahmen
+  "Probe & Kalibrierung": "Probe & Calibration", "Probe": "Probe", "Menü": "Menu", "Not-Aus": "Emergency stop",
+  "Klipper neu starten (FIRMWARE_RESTART)": "Restart Klipper (FIRMWARE_RESTART)", "Klipper-Status": "Klipper status",
+  "verbinde …": "connecting …", "Dashboard": "Dashboard", "Webcam": "Webcam", "Konsole": "Console", "Heightmap": "Heightmap",
+  "G-Code-Dateien": "G-Code Files", "G-Code-Viewer": "G-Code Viewer", "Historie": "History", "Timelapse": "Timelapse",
+  "Maschine": "Machine", "getrennt": "disconnected", "Shutdown": "shutdown", "startet": "starting", "Fehler": "error",
+  "druckt": "printing", "bereit": "ready", "Sprache / Language": "Language / Sprache",
+  // Hinweise
+  "Die voron0-dockprobe-Makros wurden in Klipper nicht gefunden. Installation prüfen (./install.sh --analyze).":
+    "The voron0-dockprobe macros were not found in Klipper. Check the installation (./install.sh --analyze).",
+  "Während eines Drucks sind Kalibrierung und Einstellungen gesperrt.": "Calibration and settings are locked while printing.",
+  "Ungespeicherte Kalibrierwerte – erst nach SAVE_CONFIG dauerhaft. Klipper startet dabei neu.":
+    "Unsaved calibration values – they only persist after SAVE_CONFIG. Klipper restarts while saving.",
+  "Konfiguration speichern und Klipper neu starten?": "Save configuration and restart Klipper?",
+  "Verbindung getrennt": "Connection lost",
+  // Papiertest
+  "Papiertest": "Paper test",
+  "Papier unter die Düse legen, Z verstellen bis es leicht kratzt, dann ACCEPT.": "Place paper under the nozzle, adjust Z until it drags slightly, then ACCEPT.",
+  "Accept": "Accept", "Abort": "Abort",
+  // Status
+  "Probe-Status": "Probe status", "Probe-Schalter": "Probe switch", "Gehomed": "Homed", "Position": "Position",
+  "Bett": "Bed", "Extruder": "Extruder", "Offsets x / y / z": "Offsets x / y / z", "am Toolhead": "on toolhead", "im Dock": "docked",
+  // Probe
+  "Home": "Home", "Andocken": "Attach", "Ablegen": "Dock", "Prüfen": "Check", "Messen": "Measure", "Samples": "Samples",
+  "Genauigkeit": "Accuracy", "z_offset messen": "Measure z_offset",
+  "Reihenfolge: erst Z-Endstop-Papiertest, dann z_offset messen. Ergebnis ≈ 0 heißt: passt.":
+    "Order: Z endstop paper test first, then measure z_offset. A result of ≈ 0 means it fits.",
+  "sehr gut": "very good", "brauchbar": "usable", "zu ungenau": "too inaccurate",
+  "Genauigkeit <b>{txt}</b> – Spanne {r} mm, Std.-Abw. {sd} mm": "Accuracy <b>{txt}</b> – range {r} mm, std. dev. {sd} mm",
+  "Gemessen z = {z} mm – z_offset passt.": "Measured z = {z} mm – z_offset is fine.",
+  "Gemessen z = {z} mm.": "Measured z = {z} mm.", "Neuer z_offset: <b>{n}</b>": "New z_offset: <b>{n}</b>", "Übernehmen": "Apply",
+  // Kalibrierung
+  "Kalibrierung": "Calibration", "Bett °C": "Bed °C", "Soak (min)": "Soak (min)", "Mesh-Profil": "Mesh profile",
+  "Schrauben": "Screws", "Mesh": "Mesh", "Komplett-Kalibrierung": "Full calibration", "Z-Endstop (Papiertest)": "Z endstop (paper test)",
+  "1. Schrauben ausrichten · 2. nach jedem Drehen Papiertest + SAVE_CONFIG · 3. z_offset messen · 4. Mesh + SAVE_CONFIG":
+    "1. Level screws · 2. after each turn: paper test + SAVE_CONFIG · 3. measure z_offset · 4. mesh + SAVE_CONFIG",
+  // Schrauben / Mesh
+  "Bettschrauben": "Bed screws", "Schrauben messen": "Measure screws", "vorne": "front", "Dock": "Dock", "Referenz": "Reference",
+  "Fehler bei der Messung": "Measurement failed", "Schraube {n}": "Screw {n}",
+  "↻ im Uhrzeigersinn · ↺ gegen den Uhrzeigersinn · 00:15 = Vierteldrehung": "↻ clockwise · ↺ counter-clockwise · 00:15 = quarter turn",
+  "Bed Mesh": "Bed Mesh", "Mesh messen": "Measure mesh", "Deaktivieren": "Disable", "Kein Mesh geladen.": "No mesh loaded.",
+  "Profil <b>{p}</b> · Spanne <b>{r} mm</b> · hinten oben": "Profile <b>{p}</b> · range <b>{r} mm</b> · rear on top",
+  // Einstellungen
+  "Einstellungen": "Settings", "Schraube": "Screw", "Probe-Pin": "Probe pin", "x_offset": "x_offset", "y_offset": "y_offset",
+  "z_offset": "z_offset", "Geschwindigkeit mm/s": "Speed mm/s",
+  "x: links der Düse negativ · y: hinter der Düse positiv · z: Auslösehöhe der Probe":
+    "x: left of nozzle is negative · y: behind nozzle is positive · z: probe trigger height",
+  "z_offset steht in probe_dock_settings.cfg.": "z_offset is stored in probe_dock_settings.cfg.",
+  "z_offset steht im SAVE_CONFIG-Block von printer.cfg und wird dort geändert.": "z_offset is stored in the SAVE_CONFIG block of printer.cfg and is changed there.",
+  "Kein z_offset gefunden.": "No z_offset found.",
+  "Dock X": "Dock X", "Dock Y": "Dock Y", "Anfahrweg rechts": "Approach distance (right)", "Y-Bahn / Lösen": "Y lane / release",
+  "Z für Dock-Fahrten": "Z for dock moves", "Verfahren mm/min": "Travel mm/min", "Dock mm/min": "Dock mm/min",
+  "Andock-Status über Probe-Pin prüfen": "Verify dock state via probe pin", "Aktuelle Position als Dock": "Use current position as dock",
+  "Düsenposition, wenn die Düse genau über der Schraube steht. Mit den Pfeilen hinfahren und übernehmen.":
+    "Nozzle position when the nozzle is exactly above the screw. Jog there with the arrows and apply.",
+  "Gewinde": "Thread", "Name": "Name", "Düse X": "Nozzle X", "Düse Y": "Nozzle Y",
+  "Aktuelle Position übernehmen": "Use current position", "Entfernen": "Remove",
+  "Randabstand mm": "Edge margin mm", "Punkte X": "Points X", "Punkte Y": "Points Y",
+  "mesh_min/max, Referenzpunkt und horizontal_move_z werden aus Offsets und Verfahrbereich berechnet.":
+    "mesh_min/max, reference point and horizontal_move_z are calculated from offsets and travel range.",
+  "Verfahren": "Jog", "Schritt mm": "Step mm", "Speichern": "Save", "Verwerfen": "Discard",
+  "Mesh (Probe)": "Mesh (probe)", "Düse beim Mesh": "Nozzle during mesh", "Referenz / Papiertest": "Reference / paper test",
+  "{d} mm daneben": "{d} mm off",
+  "Mesh-Bereich ist leer – Offsets oder Randabstand prüfen.": "Mesh area is empty – check offsets or edge margin.",
+  "Schraube „{n}“: Probe misst {d} mm neben der Schraube": "Screw “{n}”: probe measures {d} mm away from the screw",
+  "Dock-Höhe {a} liegt knapp über der Probe-Spitze ({b}) – Kollisionsgefahr": "Dock height {a} is barely above the probe tip ({b}) – risk of collision",
+  "Anfahrpunkt rechts vom Dock liegt außerhalb des Verfahrbereichs": "Approach point right of the dock is outside the travel range",
+  "Y-Bahn": "Y lane", "{n} {v} liegt außerhalb des Verfahrbereichs ({a}…{b})": "{n} {v} is outside the travel range ({a}…{b})",
+  "Probe-Pin sieht ungültig aus": "Probe pin looks invalid", "Mindestens drei Schrauben nötig.": "At least three screws required.",
+  "Probe direkt über der Schraube": "probe directly above the screw", "Probe {d} mm neben der Schraube": "probe {d} mm away from the screw",
+  "Section [{s}] fehlt in {f}": "Section [{s}] missing in {f}", "z_offset im SAVE_CONFIG-Block nicht gefunden": "z_offset not found in the SAVE_CONFIG block",
+  "{f} nicht lesbar (HTTP {s})": "{f} could not be read (HTTP {s})", "{f} konnte nicht gespeichert werden (HTTP {s})": "{f} could not be saved (HTTP {s})",
+  // Speichern
+  "Probe-Geschwindigkeit": "Probe speed", "Anfahrweg": "Approach distance", "Z Dock-Fahrten": "Z dock moves",
+  "Dock-Geschwindigkeit": "Dock speed", "Status prüfen": "Verify state", "Randabstand": "Edge margin", "ja": "yes", "nein": "no",
+  "Während eines Drucks gesperrt.": "Locked while printing.", "Erst speichern": "Save first",
+  "Es gibt ungespeicherte Kalibrierwerte (SAVE_CONFIG ausstehend). Bitte zuerst Save Config ausführen – ein Neustart würde sie verwerfen.":
+    "There are unsaved calibration values (SAVE_CONFIG pending). Please run Save Config first – a restart would discard them.",
+  "Erst den Papiertest abschließen.": "Finish the paper test first.", "Keine Änderungen.": "No changes.",
+  "Gespeichert wird in {f} (vorherige Version als .bak). Danach startet Klipper neu.": "Saved to {f} (previous version as .bak). Klipper restarts afterwards.",
+  " und ": " and ",
+  "Nach Änderungen an Offsets oder Dock: erste Dock-Fahrt beobachten, Hand am Not-Aus.": "After changing offsets or dock: watch the first dock move, hand on the emergency stop.",
+  "Änderungen speichern": "Save changes", "Speichern & Neustart": "Save & restart", "Gespeichert – Klipper startet neu …": "Saved – Klipper is restarting …",
+  "Fehler beim Speichern": "Error while saving", "Bestätigen": "Confirm", "Abbrechen": "Cancel", "OK": "OK",
+  "Position übernommen: X {x}  Y {y}": "Position applied: X {x}  Y {y}",
+  "Neustart": "Restart", "Klipper per FIRMWARE_RESTART neu starten?": "Restart Klipper via FIRMWARE_RESTART?",
+  "Klipper-Meldungen": "Klipper messages", "Deutsch": "Deutsch", "English": "English",
+  "Senden": "Send", "G-Code": "G-Code", "z. B. QUERY_PROBE": "e.g. QUERY_PROBE",
+};
+
+let LANG = "de";
+function t(s, v) {
+  let r = LANG === "en" && T_EN[s] !== undefined ? T_EN[s] : s;
+  if (v) r = r.replace(/\{(\w+)\}/g, (m, k) => (v[k] !== undefined ? v[k] : m));
+  return r;
+}
+
+/* statische Texte im HTML übersetzen (nur Deutsch → Englisch nötig) */
+function translateStatic() {
+  if (LANG !== "en") return;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  for (const n of nodes) {
+    if (n.parentElement && n.parentElement.closest("script, #log")) continue;
+    const raw = n.nodeValue, key = raw.trim();
+    if (key && T_EN[key] !== undefined) n.nodeValue = raw.replace(key, T_EN[key]);
+  }
+  document.querySelectorAll("[title], [placeholder]").forEach((el) => {
+    for (const a of ["title", "placeholder"]) {
+      const v = el.getAttribute(a);
+      if (v && T_EN[v] !== undefined) el.setAttribute(a, T_EN[v]);
+    }
+  });
+}
+
+function detectLang(mainsailLang) {
+  const saved = store.get("lang", null);
+  if (saved === "de" || saved === "en") return saved;
+  const l = String(mainsailLang || navigator.language || "de").toLowerCase();
+  return l.startsWith("de") ? "de" : "en";
+}
+
+function setLang(l, persist) {
+  if (persist) store.set("lang", l);
+  if (l === LANG) return;
+  if (LANG === "en") return location.reload();   // zurück auf Deutsch: Seite neu laden
+  LANG = l;
+  document.documentElement.lang = l;
+  translateStatic();
+  $("lang").textContent = "DE";
+  if (lastAvail) buildNav(lastAvail);
+  if (ED) { readEditor(); fillEditor(); }
+  render();
+}
+let lastAvail = null;
+
+const S = {};           // Klipper-Status
+let CFG = {};           // configfile.settings
+let ws = null, rid = 0, busy = 0, klippy = "disconnected", components = [];
+const pending = new Map();
+
+// =====================================================================
+// Verbindung zu Moonraker
+// =====================================================================
+function connect() {
+  ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/websocket`);
+  ws.onopen = () => { init(); };
+  ws.onclose = () => {
+    setKlippy("disconnected");
+    pending.forEach((p) => p.rej(new Error(t("Verbindung getrennt")))); pending.clear();
+    setTimeout(connect, 2000);
+  };
+  ws.onmessage = (ev) => {
+    const m = JSON.parse(ev.data);
+    if (m.id !== undefined && pending.has(m.id)) {
+      const p = pending.get(m.id); pending.delete(m.id);
+      m.error ? p.rej(new Error(m.error.message || "Fehler")) : p.res(m.result);
+      return;
+    }
+    switch (m.method) {
+      case "notify_status_update": merge(m.params[0]); break;
+      case "notify_gcode_response": onResponse(m.params[0]); break;
+      case "notify_klippy_ready": checkKlippy(); break;
+      case "notify_klippy_shutdown": setKlippy("shutdown"); break;
+      case "notify_klippy_disconnected": setKlippy("disconnected"); setTimeout(checkKlippy, 2000); break;
+    }
+  };
+}
+
+function rpc(method, params) {
+  return new Promise((res, rej) => {
+    if (!ws || ws.readyState !== 1) return rej(new Error("nicht verbunden"));
+    const id = ++rid; pending.set(id, { res, rej });
+    ws.send(JSON.stringify({ jsonrpc: "2.0", method, params, id }));
+  });
+}
+
+async function init() {
+  loadMainsail();
+  checkKlippy();
+}
+
+async function checkKlippy() {
+  try {
+    const info = await rpc("server.info");
+    components = info.components || [];
+    setKlippy(info.klippy_state);
+    if (info.klippy_state === "ready") await subscribe();
+    else setTimeout(checkKlippy, 2000);
+  } catch (e) { log(e.message, "e"); }
+}
+
+async function subscribe() {
+  const avail = (await rpc("printer.objects.list")).objects;
+  const want = {
+    toolhead: ["homed_axes", "position"], heater_bed: ["temperature", "target"],
+    extruder: ["temperature", "target"], probe: ["last_query"],
+    "gcode_macro _PROBE_STATE": ["attached"], "gcode_macro _PROBE_VARS": null,
+    screws_tilt_adjust: ["results", "error"], manual_probe: ["is_active", "z_position"],
+    bed_mesh: ["profile_name", "probed_matrix"],
+    configfile: ["save_config_pending"], print_stats: ["state"], webhooks: ["state", "state_message"],
+  };
+  const objects = {};
+  for (const k in want) if (avail.includes(k)) objects[k] = want[k];
+  merge((await rpc("printer.objects.subscribe", { objects })).status);
+  CFG = (await rpc("printer.objects.query", { objects: { configfile: ["settings"] } })).status.configfile.settings || {};
+  installed = avail.includes("gcode_macro _PROBE_VARS");
+  buildNav(avail);
+  await loadSettings();
+  render();
+}
+
+let installed = true;
+function setKlippy(st) { klippy = st; render(); }
+function merge(o) { for (const k in o) S[k] = Object.assign(S[k] || {}, o[k]); render(); }
+
+// =====================================================================
+// Mainsail-Integration: Farben, Druckername, Logo, Navigation
+// =====================================================================
+async function loadMainsail() {
+  const get = (key) => rpc("server.database.get_item", { namespace: "mainsail", key }).then((r) => r.value).catch(() => null);
+  const ui = await get("uiSettings");
+  if (ui) {
+    if (ui.primary) document.documentElement.style.setProperty("--primary", ui.primary);
+    if (ui.mode === "light") document.body.dataset.theme = "light";
+  }
+  const gen = await get("general");
+  setLang(detectLang(gen && (gen.language || gen.locale)));
+  const name = (gen && gen.printername) || location.hostname || "Mainsail";
+  $("pname").textContent = name;
+  document.title = `${t("Probe")} – ${name}`;
+  for (const f of ["sidebar-logo.svg", "sidebar-logo.png", "sidebar-logo.jpg"]) {
+    const url = `/server/files/config/.theme/${f}`;
+    try { if ((await fetch(url, { method: "HEAD" })).ok) { $("logo").innerHTML = `<img src="${url}" alt="">`; return; } } catch { /* weiter */ }
+  }
+  $("logo").innerHTML = icon("mdiCrosshairsGps");
+}
+
+async function buildNav(avail) {
+  lastAvail = avail;
+  let webcams = 0;
+  try { webcams = ((await rpc("server.webcams.list")).webcams || []).length; } catch { /* egal */ }
+  const items = [
+    { t: t("Dashboard"), h: "/", i: "mdiViewDashboardOutline", p: 10 },
+    webcams && { t: t("Webcam"), h: "/cam", i: "mdiWebcam", p: 20 },
+    { t: t("Konsole"), h: "/console", i: "mdiConsoleLine", p: 30 },
+    avail.includes("bed_mesh") && { t: t("Heightmap"), h: "/heightmap", i: "mdiGrid", p: 40 },
+    { t: t("G-Code-Dateien"), h: "/files", i: "mdiFileDocumentMultipleOutline", p: 50 },
+    { t: t("G-Code-Viewer"), h: "/viewer", i: "mdiVideo3d", p: 60 },
+    components.includes("history") && { t: t("Historie"), h: "/history", i: "mdiHistory", p: 70 },
+    components.includes("timelapse") && { t: t("Timelapse"), h: "/timelapse", i: "mdiPlay", p: 80 },
+    { t: t("Maschine"), h: "/config", i: "mdiWrench", p: 90 },
+  ].filter(Boolean);
+  try {
+    const r = await fetch("/server/files/config/.theme/navi.json", { cache: "no-store" });
+    if (r.ok) for (const e of await r.json()) {
+      const self = e.href === "/probe/" || e.href === "/probe";
+      items.push({ t: self ? t("Probe") : e.title, h: e.href, target: e.target, path: e.icon, p: e.position ?? 1000, active: self });
+    }
+  } catch { /* keine eigenen Einträge */ }
+  if (!items.some((x) => x.active)) items.push({ t: t("Probe"), h: "/probe/", i: "mdiCrosshairsGps", p: 45, active: true });
+  items.sort((a, b) => a.p - b.p);
+  $("navlist").innerHTML = items.map((x) => {
+    const ic = x.path ? `<svg class="i" viewBox="0 0 24 24"><path d="${esc(x.path)}"/></svg>` : icon(x.i || "mdiLinkVariant");
+    return `<li><a href="${esc(x.h)}"${x.target === "_blank" ? ' target="_blank" rel="noopener"' : ""} class="${x.active ? "active" : ""}">${ic}<span>${esc(x.t)}</span></a></li>`;
+  }).join("");
+}
+
+// =====================================================================
+// G-Code und Antworten
+// =====================================================================
+async function gcode(script) {
+  log("> " + script, "cmd");
+  busy++; render();
+  try { await rpc("printer.gcode.script", { script }); }
+  catch (e) { log("!! " + e.message, "e"); }
+  finally { busy--; render(); }
+}
+
+let lastMeasured = null;
+function onResponse(line) {
+  log(line, line.startsWith("!!") ? "e" : "");
+  let m = line.match(/estimate contact at z=(-?[\d.]+)/);
+  if (m) return showOffset(parseFloat(m[1]), true);
+  m = line.match(/^probe at [-\d.]+,[-\d.]+ is z=(-?[\d.]+)/);
+  if (m) return showOffset(parseFloat(m[1]), false);
+  m = line.match(/probe accuracy results:.*range ([\d.]+).*standard deviation ([\d.]+)/);
+  if (m) {
+    const r = +m[1], sd = +m[2];
+    const [cls, txt] = r < 0.01 && sd < 0.003 ? ["ok", t("sehr gut")] : r < 0.025 && sd < 0.005 ? ["warn", t("brauchbar")] : ["err", t("zu ungenau")];
+    $("probe-res").innerHTML = `<div class="alert ${cls}">${icon("mdiInformationOutline", "s")}<div class="grow">${t("Genauigkeit <b>{txt}</b> – Spanne {r} mm, Std.-Abw. {sd} mm", { txt, r: r.toFixed(4), sd: sd.toFixed(4) })}</div></div>`;
+  }
+}
+
+function showOffset(z, relative) {
+  const cur = Number((CFG.probe || {}).z_offset ?? (ED ? ED.base.z_offset : NaN));
+  const next = Math.round((relative ? cur + z : z) * 1000) / 1000;
+  const good = relative && Math.abs(z) <= 0.02;
+  if (isNaN(next)) return;
+  lastMeasured = good ? null : next;
+  $("probe-res").innerHTML = good
+    ? `<div class="alert ok">${icon("mdiCheck", "s")}<div class="grow">${t("Gemessen z = {z} mm – z_offset passt.", { z: z.toFixed(4) })}</div></div>`
+    : `<div class="alert warn">${icon("mdiAlertOutline", "s")}<div class="grow">${relative ? t("Gemessen z = {z} mm.", { z: z.toFixed(4) }) + " " : ""}${t("Neuer z_offset: <b>{n}</b>", { n: next.toFixed(3) })}</div>
+       <button class="btn sm warn" id="z-apply">${t("Übernehmen")}</button></div>`;
+  const b = $("z-apply");
+  if (b) b.onclick = () => { if (ED) { setField("z_offset", next); openTab("t-probe"); saveSettings(); } };
+}
+
+// =====================================================================
+// Rendering
+// =====================================================================
+let raf = 0;
+function render() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); }); }
+const f1 = (v) => (v == null || isNaN(v)) ? "–" : Number(v).toFixed(1);
+const printing = () => ["printing", "paused"].includes((S.print_stats || {}).state);
+
+function draw() {
+  const ready = klippy === "ready", pr = printing();
+  const chip = $("kchip");
+  chip.className = "chip " + (!ready ? "err" : pr ? "info" : "ok");
+  $("kstate").textContent = !ready ? t({ disconnected: "getrennt", shutdown: "Shutdown", startup: "startet", error: "Fehler" }[klippy] || klippy) : t(pr ? "druckt" : "bereit");
+  $("restart").disabled = pr;
+
+  // Hinweise oben
+  const al = [];
+  if (ready && !installed) al.push(["err", "mdiAlertOutline", t("Die voron0-dockprobe-Makros wurden in Klipper nicht gefunden. Installation prüfen (./install.sh --analyze).")]);
+  if (!ready && klippy !== "disconnected") al.push(["err", "mdiAlertOutline", `Klipper: ${esc((S.webhooks || {}).state_message || klippy)}`]);
+  if (pr) al.push(["info", "mdiInformationOutline", t("Während eines Drucks sind Kalibrierung und Einstellungen gesperrt.")]);
+  if ((S.configfile || {}).save_config_pending)
+    al.push(["warn", "mdiContentSave", t("Ungespeicherte Kalibrierwerte – erst nach SAVE_CONFIG dauerhaft. Klipper startet dabei neu."), `<button class="btn sm warn" data-g="SAVE_CONFIG" data-confirm="${t("Konfiguration speichern und Klipper neu starten?")}" ${pr ? "disabled" : ""}>Save Config</button>`]);
+  $("alerts").innerHTML = al.map(([c, i, msg, b]) => `<div class="alert ${c}">${icon(i, "s")}<div class="grow">${msg}</div>${b || ""}</div>`).join("");
+  $("alerts").classList.toggle("hide", !al.length);
+
+  const att = (S["gcode_macro _PROBE_STATE"] || {}).attached;
+  $("s-probe").innerHTML = att === undefined ? "–" : att ? `<span class="chip warn">${t("am Toolhead")}</span>` : `<span class="chip ok">${t("im Dock")}</span>`;
+  const lq = (S.probe || {}).last_query;
+  $("s-pin").textContent = lq === undefined ? "–" : lq ? "TRIGGERED" : "open";
+  const th = S.toolhead || {};
+  $("s-homed").textContent = th.homed_axes ? th.homed_axes.toUpperCase() : "–";
+  $("s-pos").textContent = th.position ? `X ${f1(th.position[0])}  Y ${f1(th.position[1])}  Z ${Number(th.position[2]).toFixed(2)}` : "–";
+  const hb = S.heater_bed || {}, ex = S.extruder || {};
+  $("s-bed").textContent = `${f1(hb.temperature)} / ${f1(hb.target)} °C`;
+  $("s-ext").textContent = `${f1(ex.temperature)} / ${f1(ex.target)} °C`;
+  const p = CFG.probe || {};
+  $("s-off").textContent = p.x_offset !== undefined ? `${p.x_offset} / ${p.y_offset} / ${p.z_offset}` : "–";
+
+  const lock = !ready || pr || busy > 0;
+  document.querySelectorAll(".act").forEach((b) => b.disabled = lock);
+  const homed = (th.homed_axes || "").length === 3;
+  document.querySelectorAll(".jg").forEach((b) => b.disabled = lock || !homed);
+  document.querySelectorAll(".pos").forEach((b) => b.disabled = !homed || !th.position);
+  $("ed-save").disabled = !ED || !ready || pr || busy > 0;
+
+  const mp = S.manual_probe || {};
+  $("mp").classList.toggle("hide", !mp.is_active);
+  document.querySelectorAll(".mpb").forEach((b) => b.disabled = !mp.is_active);
+  $("mpz").textContent = mp.z_position != null ? "Z " + Number(mp.z_position).toFixed(3) : "–";
+
+  drawBed();
+  drawMesh();
+}
+
+function screwList() {
+  const st = CFG.screws_tilt_adjust || {}, out = [];
+  for (let i = 1; i <= 20; i++) {
+    const p = st["screw" + i];
+    if (!p) break;
+    const xy = Array.isArray(p) ? p : String(p).split(",").map(Number);
+    out.push({ key: "screw" + i, name: st[`screw${i}_name`] || t("Schraube {n}", { n: i }), x: +xy[0], y: +xy[1] });
+  }
+  return out;
+}
+const adjMin = (a) => { const m = /(\d+):(\d+)/.exec(a || ""); return m ? (+m[1]) * 60 + (+m[2]) : 0; };
+
+function travel() {
+  const sx = CFG.stepper_x || {}, sy = CFG.stepper_y || {};
+  return { xmin: +(sx.position_min ?? 0), xmax: +(sx.position_max ?? 120), ymin: +(sy.position_min ?? 0), ymax: +(sy.position_max ?? 120) };
+}
+
+function drawBed() {
+  const { xmin, xmax, ymin, ymax } = travel();
+  const W = xmax - xmin, H = ymax - ymin, pad = 10, sc = 120 / Math.max(W, H);
+  const X = (x) => pad + (x - xmin) * sc, Y = (y) => pad + (ymax - y) * sc;
+  const p = CFG.probe || {}, xo = +(p.x_offset || 0), yo = +(p.y_offset || 0);
+  const res = (S.screws_tilt_adjust || {}).results || {};
+  const v = S["gcode_macro _PROBE_VARS"] || {};
+  let svg = `<rect x="${pad}" y="${pad}" width="${W * sc}" height="${H * sc}" rx="3" fill="var(--bed)" stroke="var(--bed-line)"/>`;
+  svg += `<text x="${pad + W * sc / 2}" y="${pad + H * sc + 7}" text-anchor="middle" style="fill:var(--muted)">${t("vorne")}</text>`;
+  if (v.dock_x !== undefined)
+    svg += `<rect x="${X(v.dock_x) - 3}" y="${Y(v.dock_y) - 3}" width="6" height="6" fill="none" stroke="var(--muted)" stroke-dasharray="1.5"/>` +
+           `<text x="${X(v.dock_x)}" y="${Y(v.dock_y) - 5}" style="fill:var(--muted)">${t("Dock")}</text>`;
+  const rows = [];
+  for (const s of screwList()) {
+    const px = s.x + xo, py = s.y + yo, r = res[s.key];
+    let col = "var(--muted)", label = "";
+    if (r) {
+      if (r.is_base) { col = "var(--primary)"; label = t("Referenz"); }
+      else {
+        const mins = adjMin(r.adjust);
+        col = mins <= 3 ? "var(--ok)" : mins <= 10 ? "var(--warn)" : "var(--err)";
+        label = (r.sign === "CW" ? "↻ " : "↺ ") + r.adjust;
+      }
+      rows.push(`<tr><td>${esc(s.name)}</td><td><span style="color:${col};font-weight:500">${esc(label)}</span> <small style="color:var(--muted)">z ${Number(r.z).toFixed(4)}</small></td></tr>`);
+    }
+    svg += `<circle cx="${X(px)}" cy="${Y(py)}" r="5" fill="${col}" fill-opacity=".25" stroke="${col}"/>`;
+    const top = py > (ymin + ymax) / 2, ty = top ? Y(py) + 12 : Y(py) - 15;
+    const tx = Math.min(Math.max(X(px), pad + 18), pad + W * sc - 18);
+    svg += `<text x="${tx}" y="${ty}" text-anchor="middle">${esc(s.name)}</text>`;
+    if (label) svg += `<text x="${tx}" y="${ty + 7}" text-anchor="middle" style="fill:${col};font-weight:700">${esc(label)}</text>`;
+  }
+  $("bed").setAttribute("viewBox", `0 0 ${W * sc + 2 * pad} ${H * sc + 2 * pad}`);
+  $("bed").innerHTML = svg;
+  $("screw-res").innerHTML = (S.screws_tilt_adjust || {}).error ? `<tr><td>${t("Fehler bei der Messung")}</td><td></td></tr>` : rows.join("");
+}
+
+function drawMesh() {
+  const bm = S.bed_mesh || {}, m = bm.probed_matrix;
+  if (!m || !m.length || !m[0].length) { $("mesh-info").textContent = t("Kein Mesh geladen."); $("mesh-tbl").innerHTML = ""; return; }
+  const flat = m.flat(), lo = Math.min(...flat), hi = Math.max(...flat), amp = Math.max(Math.abs(lo), Math.abs(hi), 0.05);
+  $("mesh-info").innerHTML = t("Profil <b>{p}</b> · Spanne <b>{r} mm</b> · hinten oben", { p: esc(bm.profile_name || "–"), r: (hi - lo).toFixed(3) });
+  const color = (z) => {
+    const k = Math.min(Math.abs(z) / amp, 1), [r, g, b] = z < 0 ? [66, 165, 245] : [239, 83, 80];
+    const mix = (a) => Math.round(225 + (a - 225) * k);
+    return `rgb(${mix(r)},${mix(g)},${mix(b)})`;
+  };
+  let html = `<table class="mesh">`;
+  for (let i = m.length - 1; i >= 0; i--) html += "<tr>" + m[i].map((z) => `<td style="background:${color(z)}">${z.toFixed(3)}</td>`).join("") + "</tr>";
+  $("mesh-tbl").innerHTML = html + `</table><div class="legend"><span>${lo.toFixed(3)}</span><span>0</span><span>+${hi.toFixed(3)}</span></div>`;
+}
+
+// =====================================================================
+// Einstellungs-Editor (liest/schreibt probe_dock_settings.cfg)
+// =====================================================================
+let ED = null;   // { text, printerCfg, zSource, base, model }
+
+const fmt = (v) => {
+  let s = (Math.round(Number(v) * 1000) / 1000).toFixed(3).replace(/\.?0+$/, "");
+  return s === "-0" || s === "" ? "0" : s;
+};
+
+async function fetchCfg(name) {
+  const r = await fetch(`/server/files/config/${encodeURIComponent(name)}`, { cache: "no-store" });
+  if (!r.ok) throw new Error(t("{f} nicht lesbar (HTTP {s})", { f: name, s: r.status }));
+  return r.text();
+}
+
+async function uploadCfg(name, text) {
+  const fd = new FormData();
+  fd.append("root", "config");
+  fd.append("file", new Blob([text], { type: "text/plain" }), name);
+  const r = await fetch("/server/files/upload", { method: "POST", body: fd });
+  if (!r.ok) throw new Error(t("{f} konnte nicht gespeichert werden (HTTP {s})", { f: name, s: r.status }));
+}
+
+function parseCfg(text) {
+  const sec = {}, meta = { screw: [], mesh_margin: null };
+  let cur = null;
+  for (const line of text.split("\n")) {
+    if (line.startsWith("#*#")) break;
+    if (line.startsWith("#@")) {
+      const [k, ...rest] = line.slice(2).trim().split(/\s+/);
+      if (k === "screw") meta.screw.push(rest);
+      if (k === "mesh_margin") meta.mesh_margin = +rest[0];
+      continue;
+    }
+    const h = line.match(/^\[([^\]]+)\]/);
+    if (h) { cur = h[1].trim().toLowerCase(); sec[cur] = sec[cur] || {}; continue; }
+    const o = cur && line.match(/^([A-Za-z0-9_]+)\s*[:=]\s*(.*?)\s*$/);
+    if (o) sec[cur][o[1].toLowerCase()] = o[2].split(/\s[#;]/)[0].trim();
+  }
+  return { sec, meta };
+}
+
+function autosaveZ(text) {
+  let inProbe = false;
+  for (const line of text.split("\n")) {
+    if (!line.startsWith("#*#")) continue;
+    const b = line.slice(3).trim();
+    if (b.startsWith("[")) { inProbe = /^\[probe\]/i.test(b); continue; }
+    const m = inProbe && b.match(/^z_offset\s*[:=]\s*(-?[\d.]+)/);
+    if (m) return +m[1];
+  }
+  return null;
+}
+
+async function loadSettings() {
+  try {
+    const [text, printerCfg] = await Promise.all([fetchCfg(SETTINGS), fetchCfg("printer.cfg")]);
+    const { sec, meta } = parseCfg(text);
+    const v = sec["gcode_macro _probe_vars"] || {}, p = sec.probe || {}, bm = sec.bed_mesh || {}, st = sec.screws_tilt_adjust || {};
+    const n = (x, d) => (x === undefined || x === "" || isNaN(+x)) ? d : +x;
+    let zSource = "settings", z = n(p.z_offset, null);
+    if (z === null) { z = autosaveZ(printerCfg); zSource = z === null ? "missing" : "autosave"; }
+    const xo = n(p.x_offset, 0), yo = n(p.y_offset, 0);
+    let screws = meta.screw.map((r) => ({ x: +r[0], y: +r[1], name: r.slice(2).join(" ") }));
+    if (!screws.length) {
+      for (let i = 1; st["screw" + i]; i++) {
+        const [x, y] = st["screw" + i].split(",").map(Number);
+        screws.push({ x: x + xo, y: y + yo, name: st[`screw${i}_name`] || t("Schraube {n}", { n: i }) });
+      }
+    }
+    const [cx, cy] = String(bm.probe_count || "5,5").split(",").map((s) => parseInt(s));
+    const model = {
+      pin: p.pin || "", x_offset: xo, y_offset: yo, z_offset: z ?? 0, speed: n(p.speed, 2),
+      dock_x: n(v.variable_dock_x, 1), dock_y: n(v.variable_dock_y, 119), approach_dx: n(v.variable_approach_dx, 20),
+      staging_y: n(v.variable_staging_y, 100), safe_z: n(v.variable_safe_z, 14), travel_f: n(v.variable_travel_f, 4000),
+      dock_f: n(v.variable_dock_f, 4000), mlang: String(v.variable_lang || "de").replace(/["']/g, "").toLowerCase() === "en" ? "en" : "de", verify: String(v.variable_verify ?? "True").toLowerCase() !== "false",
+      screws, screw_thread: st.screw_thread || "CW-M3", margin: meta.mesh_margin ?? 3, count_x: cx || 5, count_y: cy || cx || 5,
+    };
+    ED = { text, printerCfg, zSource, base: JSON.parse(JSON.stringify(model)), model };
+    $("ed-msg").innerHTML = "";
+    fillEditor();
+  } catch (e) {
+    ED = null;
+    $("ed-msg").innerHTML = `<div class="alert err">${icon("mdiAlertOutline", "s")}<div class="grow">${esc(e.message)}</div></div>`;
+  }
+  render();
+}
+
+function fillEditor() {
+  const m = ED.model;
+  document.querySelectorAll("#t-probe [data-k], #t-dock [data-k], #t-screws [data-k], #t-mesh [data-k]").forEach((el) => {
+    const k = el.dataset.k;
+    if (el.type === "checkbox") el.checked = !!m[k];
+    else el.value = typeof m[k] === "number" ? fmt(m[k]) : m[k];
+  });
+  $("z-src").textContent = t({ settings: "z_offset steht in probe_dock_settings.cfg.",
+    autosave: "z_offset steht im SAVE_CONFIG-Block von printer.cfg und wird dort geändert.",
+    missing: "Kein z_offset gefunden." }[ED.zSource]);
+  drawScrewEditor();
+  updatePreview();
+}
+
+function setField(k, val) {
+  if (!ED) return;
+  ED.model[k] = val;
+  const el = document.querySelector(`[data-k="${k}"]`);
+  if (el) { if (el.type === "checkbox") el.checked = !!val; else el.value = typeof val === "number" ? fmt(val) : val; }
+  updatePreview();
+}
+
+function drawScrewEditor() {
+  $("screw-ed").innerHTML = ED.model.screws.map((s, i) => `
+    <div class="screw-row" data-i="${i}">
+      <label class="fld"><span>${t("Name")}</span><input data-s="name" type="text" value="${esc(s.name)}"></label>
+      <label class="fld"><span>${t("Düse X")}</span><input data-s="x" type="number" step="0.1" value="${fmt(s.x)}"></label>
+      <label class="fld"><span>${t("Düse Y")}</span><input data-s="y" type="number" step="0.1" value="${fmt(s.y)}"></label>
+      <button class="ibtn pos" data-pos="screw" data-i="${i}" title="${t("Aktuelle Position übernehmen")}">${icon("mdiMapMarker", "s")}</button>
+      <button class="ibtn" data-del="${i}" title="${t("Entfernen")}" ${ED.model.screws.length <= 3 ? "disabled" : ""}>${icon("mdiDelete", "s")}</button>
+    </div>`).join("");
+  render();
+}
+
+/* gleiche Rechnung wie scripts/installer.py → compute() */
+function compute(m) {
+  const { xmin, xmax, ymin, ymax } = travel();
+  const xo = m.x_offset, yo = m.y_offset, g = m.margin, r1 = (v) => Math.round(v * 10) / 10;
+  const warn = [];
+  const pxl = Math.max(xmin, xmin + xo), pxh = Math.min(xmax, xmax + xo);
+  const pyl = Math.max(ymin, ymin + yo), pyh = Math.min(ymax, ymax + yo);
+  const mesh_min = [r1(pxl + g), r1(pyl + g)], mesh_max = [r1(pxh - g), r1(pyh - g)];
+  if (mesh_min[0] >= mesh_max[0] || mesh_min[1] >= mesh_max[1]) return { error: t("Mesh-Bereich ist leer – Offsets oder Randabstand prüfen.") };
+  const nxl = mesh_min[0] - xo, nxh = mesh_max[0] - xo, nyl = mesh_min[1] - yo, nyh = mesh_max[1] - yo;
+  const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+  const safe = [r1(clamp((xmin + xmax) / 2, nxl, nxh)), r1(clamp((ymin + ymax) / 2, nyl, nyh))];
+  const screws = m.screws.map((s) => {
+    const nx = s.x - xo, ny = s.y - yo, cx = clamp(nx, xmin, xmax), cy = clamp(ny, ymin, ymax);
+    const dist = Math.hypot(nx - cx, ny - cy);
+    if (dist > 15) warn.push(t("Schraube „{n}“: Probe misst {d} mm neben der Schraube", { n: s.name, d: dist.toFixed(0) }));
+    return { name: s.name, x: Math.round(cx * 100) / 100, y: Math.round(cy * 100) / 100, dist, sx: s.x, sy: s.y };
+  });
+  const hmz = Math.max(10, Math.ceil(m.z_offset + 4));
+  if (m.safe_z < m.z_offset + 3) warn.push(t("Dock-Höhe {a} liegt knapp über der Probe-Spitze ({b}) – Kollisionsgefahr", { a: fmt(m.safe_z), b: fmt(m.z_offset) }));
+  if (m.dock_x + m.approach_dx > xmax) warn.push(t("Anfahrpunkt rechts vom Dock liegt außerhalb des Verfahrbereichs"));
+  for (const [n, v, a, b] of [[t("Dock X"), m.dock_x, xmin, xmax], [t("Dock Y"), m.dock_y, ymin, ymax], [t("Y-Bahn"), m.staging_y, ymin, ymax]])
+    if (v < a || v > b) warn.push(t("{n} {v} liegt außerhalb des Verfahrbereichs ({a}…{b})", { n, v: fmt(v), a: fmt(a), b: fmt(b) }));
+  if (!/^[\^!~]*[A-Za-z0-9_:.]+$/.test(m.pin)) warn.push(t("Probe-Pin sieht ungültig aus"));
+  if (m.screws.length < 3) return { error: t("Mindestens drei Schrauben nötig.") };
+  return { mesh_min, mesh_max, safe, screws, hmz, warn, cover: [[nxl, nxh], [nyl, nyh]] };
+}
+
+function updatePreview() {
+  if (!ED) return;
+  const R = compute(ED.model);
+  if (R.error) { $("ed-prev").innerHTML = `<div style="color:var(--err)">${esc(R.error)}</div>`; return; }
+  const row = (a, b) => `<div><span>${a}</span><span>${b}</span></div>`;
+  $("ed-prev").innerHTML =
+    row(t("Mesh (Probe)"), `${fmt(R.mesh_min[0])},${fmt(R.mesh_min[1])} → ${fmt(R.mesh_max[0])},${fmt(R.mesh_max[1])}`) +
+    row(t("Düse beim Mesh"), `X ${fmt(R.cover[0][0])}…${fmt(R.cover[0][1])}, Y ${fmt(R.cover[1][0])}…${fmt(R.cover[1][1])}`) +
+    row(t("Referenz / Papiertest"), `${fmt(R.safe[0])}, ${fmt(R.safe[1])}`) +
+    row("horizontal_move_z", fmt(R.hmz)) +
+    R.screws.map((s) => row(esc(s.name), `${fmt(s.x)}, ${fmt(s.y)}${s.dist >= 0.5 ? ` <small style="color:var(--muted)">(${t("{d} mm daneben", { d: s.dist.toFixed(0) })})</small>` : ""}`)).join("") +
+    R.warn.map((w) => `<div style="color:var(--warn)">⚠ ${esc(w)}</div>`).join("");
+  // geänderte Felder markieren
+  document.querySelectorAll("[data-k]").forEach((el) => {
+    const k = el.dataset.k;
+    el.closest(".fld, .chk")?.classList.toggle("chg", JSON.stringify(ED.model[k]) !== JSON.stringify(ED.base[k]));
+  });
+}
+
+/* ---- Datei gezielt ändern, Kommentare und eigene Zeilen bleiben erhalten ---- */
+function secRange(L, name) {
+  const s = L.findIndex((l) => { const h = l.match(/^\[([^\]]+)\]/); return h && h[1].trim().toLowerCase() === name; });
+  if (s < 0) return null;
+  let e = L.findIndex((l, i) => i > s && (/^\[/.test(l) || l.startsWith("#*#")));
+  if (e < 0) e = L.length;
+  return [s, e];
+}
+
+function setOpt(L, sec, key, val) {
+  const r = secRange(L, sec);
+  if (!r) throw new Error(t("Section [{s}] fehlt in {f}", { s: sec, f: SETTINGS }));
+  const re = new RegExp(`^(${key}\\s*[:=]\\s*)(.*?)(\\s+[#;].*)?$`, "i");
+  for (let i = r[0] + 1; i < r[1]; i++) {
+    const m = L[i].match(re);
+    if (m) { L[i] = m[1] + val + (m[3] || ""); return; }
+  }
+  let at = L.findIndex((l, i) => i > r[0] && i < r[1] && /^gcode\s*:/.test(l));
+  if (at < 0) { at = r[1]; while (at > r[0] + 1 && L[at - 1].trim() === "") at--; }
+  L.splice(at, 0, `${key}: ${val}`);
+}
+
+function setScrews(L, screws) {
+  const r = secRange(L, "screws_tilt_adjust");
+  if (!r) throw new Error(t("Section [{s}] fehlt in {f}", { s: "screws_tilt_adjust", f: SETTINGS }));
+  let first = -1;
+  for (let i = r[1] - 1; i > r[0]; i--) if (/^screw\d+(_name)?\s*[:=]/i.test(L[i])) { L.splice(i, 1); first = i; }
+  if (first < 0) first = r[0] + 1;
+  const lines = [];
+  screws.forEach((s, i) => {
+    const note = s.dist < 0.5 ? "  # " + t("Probe direkt über der Schraube") : "  # " + t("Probe {d} mm neben der Schraube", { d: s.dist.toFixed(0) });
+    lines.push(`screw${i + 1}: ${fmt(s.x)}, ${fmt(s.y)}${note}`, `screw${i + 1}_name: ${s.name.replace(/[\r\n]/g, " ")}`);
+  });
+  L.splice(first, 0, ...lines);
+}
+
+function setMeta(L, m, R) {
+  let at = -1;
+  for (let i = L.length - 1; i >= 0; i--) if (/^#@(screw|mesh_margin)\b/.test(L[i])) { L.splice(i, 1); at = i; }
+  if (at < 0) at = Math.max(0, L.findIndex((l) => /^\[/.test(l)));
+  L.splice(at, 0, `#@mesh_margin ${fmt(m.margin)}`, ...R.screws.map((s) => `#@screw ${fmt(s.sx)} ${fmt(s.sy)} ${s.name}`));
+}
+
+function buildFiles(m, R) {
+  const L = ED.text.split("\n");
+  const pv = "gcode_macro _probe_vars";
+  for (const [k, v] of [["dock_x", m.dock_x], ["dock_y", m.dock_y], ["approach_dx", m.approach_dx], ["staging_y", m.staging_y],
+    ["safe_x", R.safe[0]], ["safe_y", R.safe[1]], ["safe_z", m.safe_z], ["travel_f", m.travel_f], ["dock_f", m.dock_f]])
+    setOpt(L, pv, "variable_" + k, fmt(v));
+  setOpt(L, pv, "variable_verify", m.verify ? "True" : "False");
+  setOpt(L, pv, "variable_lang", `"${m.mlang}"`);
+  setOpt(L, "probe", "pin", m.pin.trim());
+  setOpt(L, "probe", "x_offset", fmt(m.x_offset));
+  setOpt(L, "probe", "y_offset", fmt(m.y_offset));
+  setOpt(L, "probe", "speed", fmt(m.speed));
+  if (ED.zSource !== "autosave") setOpt(L, "probe", "z_offset", fmt(m.z_offset));
+  setOpt(L, "bed_mesh", "horizontal_move_z", fmt(R.hmz));
+  setOpt(L, "bed_mesh", "mesh_min", `${fmt(R.mesh_min[0])}, ${fmt(R.mesh_min[1])}`);
+  setOpt(L, "bed_mesh", "mesh_max", `${fmt(R.mesh_max[0])}, ${fmt(R.mesh_max[1])}`);
+  setOpt(L, "bed_mesh", "probe_count", `${m.count_x}, ${m.count_y}`);
+  setOpt(L, "bed_mesh", "zero_reference_position", `${fmt(R.safe[0])}, ${fmt(R.safe[1])}`);
+  setScrews(L, R.screws);
+  setOpt(L, "screws_tilt_adjust", "horizontal_move_z", fmt(R.hmz));
+  setOpt(L, "screws_tilt_adjust", "screw_thread", m.screw_thread);
+  setMeta(L, m, R);
+  const out = { [SETTINGS]: L.join("\n") };
+
+  if (ED.zSource === "autosave" && m.z_offset !== ED.base.z_offset) {
+    const P = ED.printerCfg.split("\n");
+    let inProbe = false, done = false;
+    for (let i = 0; i < P.length; i++) {
+      if (!P[i].startsWith("#*#")) continue;
+      const b = P[i].slice(3).trim();
+      if (b.startsWith("[")) { inProbe = /^\[probe\]/i.test(b); continue; }
+      if (inProbe && /^z_offset\s*[:=]/.test(b)) { P[i] = `#*# z_offset = ${m.z_offset.toFixed(3)}`; done = true; break; }
+    }
+    if (!done) throw new Error(t("z_offset im SAVE_CONFIG-Block nicht gefunden"));
+    out["printer.cfg"] = P.join("\n");
+  }
+  return out;
+}
+
+const LABELS = {
+  pin: "Probe-Pin", x_offset: "x_offset", y_offset: "y_offset", z_offset: "z_offset", speed: "Probe-Geschwindigkeit",
+  dock_x: "Dock X", dock_y: "Dock Y", approach_dx: "Anfahrweg", staging_y: "Y-Bahn", safe_z: "Z Dock-Fahrten",
+  travel_f: "Verfahren", dock_f: "Dock-Geschwindigkeit", verify: "Status prüfen", mlang: "Klipper-Meldungen", screw_thread: "Gewinde",
+  margin: "Randabstand", count_x: "Punkte X", count_y: "Punkte Y",
+};
+
+async function saveSettings() {
+  if (!ED) return;
+  readEditor();
+  const m = ED.model, R = compute(m);
+  if (R.error) return snack(R.error);
+  if (printing()) return snack(t("Während eines Drucks gesperrt."));
+  if ((S.configfile || {}).save_config_pending) return dialog(t("Erst speichern"), t("Es gibt ungespeicherte Kalibrierwerte (SAVE_CONFIG ausstehend). Bitte zuerst Save Config ausführen – ein Neustart würde sie verwerfen."), null);
+  if ((S.manual_probe || {}).is_active) return snack(t("Erst den Papiertest abschließen."));
+
+  const show = (k, v) => typeof v === "boolean" ? t(v ? "ja" : "nein") : typeof v === "number" ? fmt(v) : v;
+  const diff = [];
+  for (const k in LABELS) if (JSON.stringify(m[k]) !== JSON.stringify(ED.base[k])) diff.push([t(LABELS[k]), show(k, ED.base[k]), show(k, m[k])]);
+  const sStr = (a) => a.map((s) => `${s.name} (${fmt(s.x)}, ${fmt(s.y)})`).join("<br>");
+  if (JSON.stringify(m.screws) !== JSON.stringify(ED.base.screws)) diff.push([t("Schrauben"), sStr(ED.base.screws), sStr(m.screws)]);
+  if (!diff.length) return snack(t("Keine Änderungen."));
+
+  let files;
+  try { files = buildFiles(m, R); } catch (e) { return snack(e.message); }
+  const body = `<table class="diff">${diff.map(([a, b, c]) => `<tr><td>${a}</td><td>${typeof b === "string" && b.includes("<br>") ? b : esc(b)}</td><td>${typeof c === "string" && c.includes("<br>") ? c : esc(c)}</td></tr>`).join("")}</table>
+    ${R.warn.map((w) => `<div class="alert warn" style="margin-top:12px">${icon("mdiAlertOutline", "s")}<div class="grow">${esc(w)}</div></div>`).join("")}
+    <p class="note">${t("Gespeichert wird in {f} (vorherige Version als .bak). Danach startet Klipper neu.", { f: Object.keys(files).join(t(" und ")) })}</p>
+    <p class="note">${t("Nach Änderungen an Offsets oder Dock: erste Dock-Fahrt beobachten, Hand am Not-Aus.")}</p>`;
+  if (!(await dialog(t("Änderungen speichern"), body, t("Speichern & Neustart")))) return;
+
+  try {
+    for (const [name, text] of Object.entries(files)) {
+      const old = name === SETTINGS ? ED.text : ED.printerCfg;
+      await uploadCfg(name + ".bak", old);
+      await uploadCfg(name, text);
+    }
+    snack(t("Gespeichert – Klipper startet neu …"));
+    await rpc("printer.restart");
+  } catch (e) {
+    dialog(t("Fehler beim Speichern"), esc(e.message), null);
+  }
+}
+
+function readEditor() {
+  const m = ED.model;
+  document.querySelectorAll("#t-probe [data-k], #t-dock [data-k], #t-screws [data-k], #t-mesh [data-k]").forEach((el) => {
+    const k = el.dataset.k;
+    if (el.type === "checkbox") m[k] = el.checked;
+    else if (el.type === "number") { const v = parseFloat(String(el.value).replace(",", ".")); if (!isNaN(v)) m[k] = v; }
+    else m[k] = el.value;
+  });
+  m.count_x = Math.round(m.count_x); m.count_y = Math.round(m.count_y);
+  document.querySelectorAll(".screw-row").forEach((row) => {
+    const s = m.screws[+row.dataset.i];
+    if (!s) return;
+    s.name = row.querySelector('[data-s="name"]').value.trim() || t("Schraube {n}", { n: +row.dataset.i + 1 });
+    for (const k of ["x", "y"]) { const v = parseFloat(row.querySelector(`[data-s="${k}"]`).value); if (!isNaN(v)) s[k] = v; }
+  });
+}
+
+// =====================================================================
+// Dialog, Snackbar, Konsole
+// =====================================================================
+function dialog(title, html, okText) {
+  return new Promise((res) => {
+    $("m-title").textContent = title; $("m-body").innerHTML = html;
+    $("m-yes").textContent = okText || "OK";
+    $("m-no").classList.toggle("hide", !okText);
+    $("modal").classList.add("on");
+    const close = (v) => { $("modal").classList.remove("on"); res(v); };
+    $("m-yes").onclick = () => close(!!okText);
+    $("m-no").onclick = () => close(false);
+  });
+}
+
+let snackT = 0;
+function snack(t) { const s = $("snack"); s.textContent = t; s.classList.add("on"); clearTimeout(snackT); snackT = setTimeout(() => s.classList.remove("on"), 3500); }
+
+function log(text, cls) {
+  const el = $("log"), d = document.createElement("div");
+  if (cls) d.className = cls;
+  d.textContent = text;
+  el.appendChild(d);
+  while (el.childNodes.length > 400) el.removeChild(el.firstChild);
+  el.scrollTop = el.scrollHeight;
+}
+
+// =====================================================================
+// Events
+// =====================================================================
+document.addEventListener("click", async (e) => {
+  const g = e.target.closest("[data-g]");
+  if (g && !g.disabled) {
+    if (g.dataset.confirm && !(await dialog(t("Bestätigen"), esc(g.dataset.confirm), "OK"))) return;
+    return gcode(g.dataset.g);
+  }
+  const ph = e.target.closest(".ph");
+  if (ph && ph.parentElement.dataset.p) {
+    const p = ph.parentElement, closed = store.get("closed", {});
+    p.classList.toggle("closed");
+    closed[p.dataset.p] = p.classList.contains("closed");
+    store.set("closed", closed);
+    return;
+  }
+  const jb = e.target.closest(".jg");
+  if (jb && !jb.disabled) {
+    const step = parseFloat($("jstep").value) * +jb.dataset.d, ax = jb.dataset.j;
+    const f = ax === "Z" ? 600 : (ED ? ED.model.travel_f : 4000);
+    return gcode(`G91\nG0 ${ax}${step} F${f}\nG90`);
+  }
+  const pb = e.target.closest(".pos");
+  if (pb && !pb.disabled && ED) {
+    const pos = (S.toolhead || {}).position;
+    if (!pos) return;
+    readEditor();
+    const x = Math.round(pos[0] * 10) / 10, y = Math.round(pos[1] * 10) / 10;
+    if (pb.dataset.pos === "dock") { setField("dock_x", x); setField("dock_y", y); }
+    else { const s = ED.model.screws[+pb.dataset.i]; s.x = x; s.y = y; drawScrewEditor(); updatePreview(); }
+    return snack(t("Position übernommen: X {x}  Y {y}", { x: fmt(x), y: fmt(y) }));
+  }
+  const del = e.target.closest("[data-del]");
+  if (del && ED && !del.disabled) { readEditor(); ED.model.screws.splice(+del.dataset.del, 1); drawScrewEditor(); updatePreview(); return; }
+  const tb = e.target.closest("#tabs button");
+  if (tb) openTab(tb.dataset.t);
+});
+
+function openTab(id) {
+  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.t === id));
+  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t.id === id));
+}
+
+document.addEventListener("input", (e) => {
+  if (ED && e.target.closest(".panel[data-p=settings] .tab")) { readEditor(); updatePreview(); }
+});
+
+$("screw-add").onclick = () => {
+  if (!ED) return;
+  readEditor();
+  ED.model.screws.push({ name: t("Schraube {n}", { n: ED.model.screws.length + 1 }), x: 60, y: 60 });
+  drawScrewEditor(); updatePreview();
+};
+$("ed-save").onclick = saveSettings;
+$("ed-reset").onclick = () => { if (ED) { ED.model = JSON.parse(JSON.stringify(ED.base)); fillEditor(); } };
+$("estop").onclick = () => rpc("printer.emergency_stop").catch((e) => log("!! " + e.message, "e"));
+$("restart").onclick = async () => { if (await dialog(t("Neustart"), t("Klipper per FIRMWARE_RESTART neu starten?"), t("Neustart"))) rpc("printer.firmware_restart").catch((e) => log("!! " + e.message, "e")); };
+$("acc").onclick = () => gcode(`PROBE_ACCURACY SAMPLES=${Math.max(3, parseInt($("acc-n").value) || 10)}`);
+$("screws").onclick = () => gcode("BED_MESH_CLEAR\nSCREWS_TILT_CALCULATE");
+$("mesh").onclick = () => gcode("BED_MESH_CALIBRATE");
+$("cal").onclick = () => {
+  const prof = ($("cal-prof").value || "default").replace(/[^\w-]/g, "") || "default";
+  gcode(`CALIBRATE_ALL BED=${parseInt($("cal-bed").value) || 0} SOAK=${parseInt($("cal-soak").value) || 0} ` +
+        `SCREWS=${$("cal-screws").checked ? 1 : 0} MESH=${$("cal-mesh").checked ? 1 : 0} PROFILE=${prof}`);
+};
+$("cons").onsubmit = (e) => { e.preventDefault(); const v = $("cons-in").value.trim(); if (v) { gcode(v); $("cons-in").value = ""; } };
+$("menu").onclick = () => { $("nav").classList.add("open"); $("scrim").classList.add("on"); };
+$("scrim").onclick = () => { $("nav").classList.remove("open"); $("scrim").classList.remove("on"); };
+
+$("lang").onclick = () => setLang(LANG === "en" ? "de" : "en", true);
+if (store.get("lang", null) === "en") setLang("en");   // sonst entscheidet Mainsails Sprache
+
+// Panels wie zuletzt auf/zu
+const closed = store.get("closed", {});
+document.querySelectorAll(".panel[data-p]").forEach((p) => { if (closed[p.dataset.p]) p.classList.add("closed"); });
+
+connect();
+</script>
+</body>
+</html>
