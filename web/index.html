@@ -80,7 +80,7 @@ html.theme--light #bed .bed { fill: rgba(0,0,0,.03); stroke: rgba(0,0,0,.3); }
 .heat td { text-align: center; padding: 8px 0; border: 1px solid rgba(0,0,0,.25); color: #111; }
 .heat-legend { display: flex; justify-content: space-between; font-size: 12px; opacity: .7; margin-top: 6px; }
 
-#acc-chart { width: 100%; height: 120px; display: block; margin-top: 8px; }
+#acc-chart { width: 100%; height: 150px; display: block; margin-top: 8px; }
 #acc-chart text { font: 9px Roboto, sans-serif; fill: currentColor; opacity: .7; }
 
 .step-ic { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; border: 2px solid currentColor; opacity: .55; cursor: pointer; }
@@ -428,7 +428,9 @@ const T_EN = {
   "Genauigkeit <b>{txt}</b> – Spanne {r} mm, Std.-Abw. {sd} mm": "Accuracy <b>{txt}</b> – range {r} mm, std. dev. {sd} mm",
   "Gemessen z = {z} mm – z_offset passt.": "Measured z = {z} mm – z_offset is fine.",
   "Gemessen z = {z} mm.": "Measured z = {z} mm.", "Neuer z_offset: <b>{n}</b>": "New z_offset: <b>{n}</b>", "Übernehmen": "Apply",
-  "Mittel": "mean",
+  "Mittel": "mean", "Messung": "Sample", "Abweichung vom Mittelwert {m} mm (µm)": "Deviation from mean {m} mm (µm)",
+  "Grüner Bereich: ±5 µm (Spanne 0,01 mm). Treppenstufen entsprechen einem Mikroschritt der Z-Achse.":
+    "Green band: ±5 µm (range 0.01 mm). Steps correspond to one Z microstep.",
   // Dock-Test
   "Dockt die Probe mehrmals an und ab und prüft jedes Mal den Probe-Pin. Ideal nach Änderungen am Dock – zuerst langsam.":
     "Attaches and docks the probe several times and checks the probe pin each time. Ideal after dock changes – start slowly.",
@@ -961,7 +963,8 @@ function onError(msg) {
 function showAccuracy() {
   const { r, sd } = ACC.result;
   const [cls, txt] = r < 0.01 && sd < 0.003 ? ["success", t("sehr gut")] : r < 0.025 && sd < 0.005 ? ["warning", t("brauchbar")] : ["error", t("zu ungenau")];
-  $("acc-res").innerHTML = alertHTML(cls, "mdiChartBellCurve", t("Genauigkeit <b>{txt}</b> – Spanne {r} mm, Std.-Abw. {sd} mm", { txt, r: dec(r.toFixed(4)), sd: dec(sd.toFixed(4)) }));
+  $("acc-res").innerHTML = alertHTML(cls, "mdiChartBellCurve", t("Genauigkeit <b>{txt}</b> – Spanne {r} mm, Std.-Abw. {sd} mm", { txt, r: dec(r.toFixed(4)), sd: dec(sd.toFixed(4)) }) +
+    (ACC.samples.length ? `<div class="small mt-1" style="opacity:.8">${esc(t("Grüner Bereich: ±5 µm (Spanne 0,01 mm). Treppenstufen entsprechen einem Mikroschritt der Z-Achse."))}</div>` : ""));
   if (cls !== "error") setStep("accuracy", true);
   drawAccuracy();
 }
@@ -970,18 +973,28 @@ function drawAccuracy() {
   const s = ACC.samples, el = $("acc-chart");
   if (s.length < 2) { el.classList.add("hide"); return; }
   el.classList.remove("hide");
-  const W = el.clientWidth || 400, H = 120, pl = 44, pr = 8, pt = 8, pb = 16;
-  const lo = Math.min(...s), hi = Math.max(...s), span = Math.max(hi - lo, 0.002), mean = s.reduce((a, b) => a + b, 0) / s.length;
-  const X = (i) => pl + (i / (s.length - 1)) * (W - pl - pr), Y = (v) => pt + (1 - (v - (lo - span * 0.1)) / (span * 1.2)) * (H - pt - pb);
-  const pts = s.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
+  // Abweichung jeder Messung vom Mittelwert in µm – feste Mindestskala, damit eine
+  // gute Probe flach aussieht und Ausreißer sofort auffallen
+  const mean = s.reduce((a, b) => a + b, 0) / s.length;
+  const dev = s.map((v) => (v - mean) * 1000);
+  const lim = Math.max(10, Math.ceil(Math.max(...dev.map(Math.abs)) * 1.15 / 5) * 5);
+  const W = el.clientWidth || 400, H = 150, pl = 34, pr = 10, pt = 18, pb = 18;
+  const X = (i) => pl + (s.length === 1 ? 0 : (i / (s.length - 1)) * (W - pl - pr));
+  const Y = (d) => pt + (1 - (d + lim) / (2 * lim)) * (H - pt - pb);
+  const band = Math.min(5, lim);                      // ±5 µm ≙ Spanne 0,01 mm („sehr gut“)
+  let svg = `<text x="${pl}" y="11">${esc(t("Abweichung vom Mittelwert {m} mm (µm)", { m: dec(mean.toFixed(4)) }))}</text>`;
+  svg += `<rect x="${pl}" y="${Y(band)}" width="${W - pl - pr}" height="${Y(-band) - Y(band)}" fill="var(--v-success-base)" fill-opacity=".1"/>`;
+  for (const v of [lim, lim / 2, 0, -lim / 2, -lim]) {
+    svg += `<line x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="currentColor" stroke-opacity="${v === 0 ? .45 : .12}" ${v === 0 ? 'stroke-dasharray="4 3"' : ""}/>`;
+    svg += `<text x="${pl - 5}" y="${Y(v) + 3}" text-anchor="end">${v > 0 ? "+" : ""}${dec(Number(v.toFixed(1)))}</text>`;
+  }
+  svg += `<polyline points="${dev.map((d, i) => `${X(i).toFixed(1)},${Y(d).toFixed(1)}`).join(" ")}" fill="none" stroke="var(--v-primary-base)" stroke-opacity=".45" stroke-width="1"/>`;
+  svg += dev.map((d, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(d).toFixed(1)}" r="2.6" fill="var(--v-primary-base)"><title>#${i + 1}: z ${dec(s[i].toFixed(5))} mm (${d >= 0 ? "+" : ""}${dec(d.toFixed(2))} µm)</title></circle>`).join("");
+  svg += `<text x="${pl}" y="${H - 4}">1</text><text x="${W - pr}" y="${H - 4}" text-anchor="end">${s.length}</text>`;
+  svg += `<text x="${(pl + W - pr) / 2}" y="${H - 4}" text-anchor="middle">${esc(t("Messung"))}</text>`;
+  el.style.height = H + "px";
   el.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  el.innerHTML =
-    `<line x1="${pl}" x2="${W - pr}" y1="${Y(mean)}" y2="${Y(mean)}" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="4 3"/>` +
-    `<text x="${pl - 4}" y="${Y(hi) + 3}" text-anchor="end">${dec(hi.toFixed(4))}</text><text x="${pl - 4}" y="${Y(lo) + 3}" text-anchor="end">${dec(lo.toFixed(4))}</text>` +
-    `<text x="${W - pr}" y="${Y(mean) - 4}" text-anchor="end">${t("Mittel")} ${dec(mean.toFixed(4))}</text>` +
-    `<polyline points="${pts}" fill="none" stroke="var(--v-primary-base)" stroke-width="1.5"/>` +
-    s.map((v, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="2.2" fill="var(--v-primary-base)"/>`).join("") +
-    `<text x="${pl}" y="${H - 3}">1</text><text x="${W - pr}" y="${H - 3}" text-anchor="end">${s.length}</text>`;
+  el.innerHTML = svg;
 }
 
 function showOffset(z, relative) {
@@ -1123,6 +1136,17 @@ function livePos() {
   return lp && lp.some((v) => v) ? lp : (S.toolhead || {}).position;
 }
 
+const SCREW_NAMES = [["vorne mittig", "front center"], ["vorne links", "front left"], ["vorne rechts", "front right"],
+  ["hinten links", "rear left"], ["hinten rechts", "rear right"], ["hinten mittig", "rear center"], ["mitte", "center"],
+  ["links mittig", "left center"], ["rechts mittig", "right center"]];
+function screwLabel(name) {
+  const n = String(name || "").trim(), low = n.toLowerCase();
+  for (const [de, en] of SCREW_NAMES) if (low === de || low === en) return LANG === "en" ? en : de;
+  const m = /^(?:schraube|screw)\s*(\d+)$/i.exec(n);
+  if (m) return t("Schraube {n}", { n: m[1] });
+  return n;
+}
+
 function screwList() {
   const st = CFG.screws_tilt_adjust || {}, out = [];
   for (let i = 1; i <= 20; i++) {
@@ -1187,7 +1211,7 @@ function drawBed() {
     svg += `<circle cx="${X(px)}" cy="${Y(py)}" r="5" fill="${col}" fill-opacity=".2" stroke="${col}" stroke-opacity="${r ? 1 : .5}"/>`;
     const top = py > (ymin + ymax) / 2, ty = top ? Y(py) + 12 : Y(py) - 15;
     const tx = Math.min(Math.max(X(px), X(xmin) + 20), X(xmax) - 20);
-    svg += `<text x="${tx}" y="${ty}" text-anchor="middle">${esc(s.name)}</text>`;
+    svg += `<text x="${tx}" y="${ty}" text-anchor="middle">${esc(screwLabel(s.name))}</text>`;
     if (label) svg += `<text x="${tx}" y="${ty + 7}" text-anchor="middle" style="fill:${col};font-weight:700">${esc(label)}</text>`;
   }
   // Düse und Probe (live)
@@ -1227,7 +1251,7 @@ function drawBed() {
     const lab = r.is_base ? t("Referenz") : (r.sign === "CW" ? "↻ " : "↺ ") + r.adjust;
     const mins = adjMin(r.adjust), col = r.is_base ? "primary--text" : mins <= 3 ? "success--text" : mins <= 10 ? "warning--text" : "error--text";
     const pv = prevRes && prevRes[s.key] && !r.is_base ? `<span class="small muted ml-2">${esc(t("vorher {v}", { v: prevRes[s.key].adjust }))}</span>` : "";
-    return `<tr><td>${esc(s.name)}</td><td class="text-right"><span class="${col} font-weight-bold">${esc(lab)}</span>${pv}</td><td class="text-right small muted mono">z ${dec(Number(r.z).toFixed(4))}</td></tr>`;
+    return `<tr><td>${esc(screwLabel(s.name))}</td><td class="text-right"><span class="${col} font-weight-bold">${esc(lab)}</span>${pv}</td><td class="text-right small muted mono">z ${dec(Number(r.z).toFixed(4))}</td></tr>`;
   }).join("");
   $("screw-tbl").innerHTML = (S.screws_tilt_adjust || {}).error ? `<tbody><tr><td class="error--text">${esc(t("Fehler bei der Messung"))}</td></tr></tbody>`
     : `<tbody>${rows || `<tr><td class="muted">${esc(t("Noch keine Messung."))}</td></tr>`}</tbody>`;
@@ -1454,7 +1478,7 @@ function updatePreview() {
     row(esc(t("Düse beim Mesh")), `X ${d(R.cover[0][0])}…${d(R.cover[0][1])}, Y ${d(R.cover[1][0])}…${d(R.cover[1][1])}`) +
     row(esc(t("Referenz / Papiertest")), `${d(R.safe[0])}, ${d(R.safe[1])}`) +
     row("horizontal_move_z", d(R.hmz)) +
-    R.screws.map((s) => row(esc(s.name), `${d(s.x)}, ${d(s.y)}${s.dist >= 0.5 ? ` <span class="muted">(${esc(t("{d} mm daneben", { d: s.dist.toFixed(0) }))})</span>` : ""}`)).join("") +
+    R.screws.map((s) => row(esc(screwLabel(s.name)), `${d(s.x)}, ${d(s.y)}${s.dist >= 0.5 ? ` <span class="muted">(${esc(t("{d} mm daneben", { d: s.dist.toFixed(0) }))})</span>` : ""}`)).join("") +
     R.warn.map((w) => `<div class="warning--text">⚠ ${esc(w)}</div>`).join("");
   edInputs().forEach((el) => {
     const k = el.dataset.k, box = el.closest(".v-text-field");

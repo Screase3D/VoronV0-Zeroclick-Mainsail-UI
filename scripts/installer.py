@@ -525,7 +525,8 @@ def gather(env, A, asker, reconfigure):
         except (ValueError, IndexError):
             pass
     if not defaults:
-        defaults = DEFAULT_SCREWS
+        en_names = {"vorne mittig": "front center", "hinten links": "rear left", "hinten rechts": "rear right"}
+        defaults = [(x, y, en_names.get(n, n) if i18n.LANG == "en" else n) for x, y, n in DEFAULT_SCREWS]
     count = int(asker.ask("Anzahl Schrauben", float(len(defaults))))
     for i in range(count):
         d = defaults[i] if i < len(defaults) else (60.0, 60.0, f"Schraube {i + 1}")
