@@ -73,6 +73,15 @@ The page loads the stylesheets of your installed Mainsail at runtime and uses th
 Mainsail theme, primary/logo colour, light/dark mode and everything in `config/.theme/` (`custom.css`, logos, backgrounds, `navi.json`).
 The paper test opens as a dialog like in Mainsail and can be driven with the keyboard (↑/↓, Shift, PgUp/PgDn).
 
+URL: `http://<printer>/server/dockprobe/` (also `/probe/`). The `/server/` path avoids Mainsail's service worker, which would
+otherwise redirect other URLs to Mainsail when accessed via https.
+
+**Fast switching:** the Probe page preloads Mainsail invisibly in the background. Clicking Dashboard, Console etc. just shows it –
+no re-initialisation – and “Probe” in Mainsail's menu switches straight back. Browser back/forward work. Disable it with
+“Fast switching” at the bottom of the sidebar or `?shell=0`.
+
+Changes to nginx or the menu entry are not applied by updates – run `./install.sh` once more (answer “no” to regenerating settings).
+
 ## Update & uninstall
 
 The installer registers the repo in `moonraker.conf` (`[update_manager voron0-dockprobe]`, `type: git_repo`, `managed_services: klipper`).

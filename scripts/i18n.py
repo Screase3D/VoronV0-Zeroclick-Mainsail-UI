@@ -92,7 +92,7 @@ PHRASES = [
     ("Kein server-Block in", "No server block in"), ("– bitte", "– please add"), ("manuell eintragen", "manually"),
     ("nginx-Binary nicht gefunden – Test und Reload übersprungen", "nginx binary not found – test and reload skipped"),
     ("nginx-Test fehlgeschlagen, Änderung wird zurückgenommen:", "nginx test failed, change reverted:"),
-    ("Web-Oberfläche in nginx eingebunden (/probe/)", "Web UI added to nginx (/probe/)"),
+    ("Web-Oberfläche in nginx eingebunden (/server/dockprobe/ und /probe/)", "Web UI added to nginx (/server/dockprobe/ and /probe/)"),
     ("ist für nginx nicht betretbar – ggf.", "is not accessible for nginx – maybe run"),
     ("nginx-Eintrag entfernt", "nginx entry removed"),
     ("ist kein gültiges JSON-Array – Menüeintrag übersprungen", "is not a valid JSON array – menu entry skipped"),

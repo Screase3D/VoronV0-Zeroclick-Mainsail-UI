@@ -98,7 +98,14 @@ Nach jedem Drehen an den Bettschrauben den Papiertest (Schritt 2) wiederholen.
 
 ## Web-Oberfläche
 
-Erreichbar über den Menüpunkt **Probe** in Mainsail bzw. `http://<drucker>/probe/`.
+Erreichbar über den Menüpunkt **Probe** in Mainsail bzw. `http://<drucker>/server/dockprobe/` (alternativ `/probe/`).
+Der Pfad unter `/server/` ist Absicht: Dort greift Mainsails Service-Worker nicht ein, der bei Zugriff über https sonst
+jede andere Adresse auf Mainsail umleiten würde.
+
+**Schneller Seitenwechsel:** Die Probe-Seite lädt Mainsail unsichtbar im Hintergrund. Ein Klick auf Dashboard, Konsole usw.
+blendet es nur ein – ohne erneutes Initialisieren –, und „Probe“ in Mainsails Menü springt sofort zurück. Vor/Zurück im
+Browser funktioniert. Abschaltbar über „Schneller Wechsel“ unten in der Seitenleiste oder mit `?shell=0`. Kostet im Browser
+eine zweite Verbindung zu Moonraker, auf dem Drucker praktisch nichts.
 
 **Aussehen:** Die Seite lädt zur Laufzeit die Stylesheets deiner installierten Mainsail-Version und nutzt dieselben
 Bausteine (Panels, Buttons, Eingabefelder, Seitenleiste). Übernommen werden außerdem Mainsails Theme (z. B. „Voron Design“),
@@ -111,8 +118,8 @@ Primär- und Logofarbe, Hell-/Dunkelmodus, Icons-only-Navigation sowie alles aus
   Schritte haken sich nach erfolgreicher Messung selbst ab.
 - **Probe:** Status, Andocken/Ablegen, Genauigkeitstest mit Diagramm und Bewertung, z_offset-Messung mit „Übernehmen“.
 - **Dock-Test:** `DOCK_TEST CYCLES=n F=mm/min` – mehrfach andocken/ablegen, jeder Schritt wird über den Probe-Pin geprüft.
-- **Bett & Schrauben:** Live-Ansicht mit Düse, Probe-Punkt, Dock, Mesh-Bereich und Z0-Punkt; Schrauben mit Drehrichtung und
-  Vergleich zur vorherigen Messung.
+- **Bett & Schrauben:** Live-Ansicht mit Düse, Probe (im Dock oder am Toolhead mit aktueller Position), Dock-Halter
+  außerhalb des Druckbereichs, Anfahrweg, Mesh-Bereich und Z0-Punkt; Schrauben mit Drehrichtung und Vergleich zur vorherigen Messung.
 - **Bed Mesh:** Heatmap, Profile laden/speichern/löschen.
 - **Kalibrierung:** `CALIBRATE_ALL` mit Temperatur, Soak, Schrauben und Mesh.
 - **Einstellungen:** Offsets, Pin, Dock, Schraubenpositionen, Mesh, Sprache der Klipper-Meldungen. Positionen mit den
@@ -154,6 +161,9 @@ der Probe-Seite (mit „Jetzt aktualisieren“). Beim Update gilt:
 - Voraussetzung: per `git clone` installiert und keine lokalen Änderungen im Repo-Ordner (sonst meldet Moonraker „dirty“).
 
 Neue Werte per Script: `./install.sh --reconfigure`.
+
+Änderungen an nginx oder am Menüeintrag (z. B. der Pfad `/server/dockprobe/`) übernimmt ein Update nicht automatisch –
+dafür einmal `./install.sh` ausführen und die Frage nach neuen Einstellungen mit Enter (Nein) beantworten.
 
 ```bash
 ./uninstall.sh

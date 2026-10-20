@@ -35,7 +35,8 @@ OWN_FILES = {LOGIC_NAME, SETTINGS_NAME}
 MARK = "#dockprobe# "
 NGINX_SNIPPET = os.environ.get("DOCKPROBE_NGINX_SNIPPET", "/etc/nginx/snippets/dockprobe.conf")
 NGINX_TAG = "# dockprobe"
-NAVI_HREF = "/probe/"
+NAVI_HREF = "/server/dockprobe/"
+OLD_HREFS = ("/probe/", "/probe", "/server/dockprobe/", "/server/dockprobe")
 UM_SECTION = "update_manager voron0-dockprobe"
 MOONRAKER = os.environ.get("DOCKPROBE_MOONRAKER", "http://127.0.0.1:7125")
 
@@ -360,7 +361,7 @@ def analyze(env):
     A["navi_has_entry"] = False
     if navi.exists():
         try:
-            A["navi_has_entry"] = any(e.get("href") == NAVI_HREF for e in json.loads(navi.read_text()))
+            A["navi_has_entry"] = any(e.get("href") in OLD_HREFS for e in json.loads(navi.read_text()))
         except (ValueError, AttributeError):
             A["navi_has_entry"] = None
     mc = env["moonraker_conf"]
@@ -776,6 +777,13 @@ def nginx_snippet():
             f"    alias {WEB_DIR}/;\n"
             f"    index index.html;\n"
             f"    add_header Cache-Control \"no-cache\";\n"
+            f"}}\n"
+            f"# Unter /server/ greift Mainsails Service-Worker nicht ein (wichtig bei https)\n"
+            f"location = /server/dockprobe {{ return 301 /server/dockprobe/; }}\n"
+            f"location ^~ /server/dockprobe/ {{\n"
+            f"    alias {WEB_DIR}/;\n"
+            f"    index index.html;\n"
+            f"    add_header Cache-Control \"no-cache\";\n"
             f"}}\n")
 
 
@@ -807,7 +815,7 @@ def nginx_install(env, ops):
         ops.remove(NGINX_SNIPPET, root=True)
         return False
     ops.run_root(["systemctl", "reload", "nginx"])
-    ok("Web-Oberfläche in nginx eingebunden (/probe/)")
+    ok("Web-Oberfläche in nginx eingebunden (/server/dockprobe/ und /probe/)")
     home_mode = env["home"].stat().st_mode
     if not home_mode & 0o001:
         warn(f"{env['home']} ist für nginx nicht betretbar – ggf. 'chmod o+x {env['home']}'")
@@ -841,7 +849,7 @@ def navi_install(env, ops):
         except ValueError:
             warn(f"{navi} ist kein gültiges JSON-Array – Menüeintrag übersprungen")
             return
-    entries = [e for e in entries if e.get("href") != NAVI_HREF]
+    entries = [e for e in entries if e.get("href") not in OLD_HREFS]
     entries.append({"title": "Probe", "href": NAVI_HREF, "target": "_self",
                     "position": 45, "icon": NAVI_ICON})
     ops.write(navi, json.dumps(entries, indent=2, ensure_ascii=False) + "\n")
@@ -856,7 +864,7 @@ def navi_remove(env, ops):
         entries = json.loads(navi.read_text())
     except ValueError:
         return
-    rest = [e for e in entries if e.get("href") != NAVI_HREF]
+    rest = [e for e in entries if e.get("href") not in OLD_HREFS]
     if len(rest) == len(entries):
         return
     if rest:

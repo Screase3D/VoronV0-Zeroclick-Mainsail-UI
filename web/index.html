@@ -68,7 +68,7 @@ html.theme--light .kv td { border-bottom-color: rgba(0,0,0,.12); }
 .muted { opacity: .7; }
 .small { font-size: .8125rem; }
 
-#bed { width: 100%; max-width: 460px; display: block; margin: 0 auto; }
+#bed { width: 100%; max-width: 480px; display: block; margin: 0 auto; }
 #bed text { font: 6px Roboto, sans-serif; fill: currentColor; }
 #bed .bed { fill: rgba(255,255,255,.04); stroke: rgba(255,255,255,.3); }
 html.theme--light #bed .bed { fill: rgba(0,0,0,.03); stroke: rgba(0,0,0,.3); }
@@ -127,7 +127,7 @@ body.no-mainsail .v-btn { background: #333; color: #fff; border: 0; border-radiu
   <nav id="nav" class="v-navigation-drawer v-navigation-drawer--clipped v-navigation-drawer--fixed v-navigation-drawer--open theme--dark" style="top:48px;height:calc(100% - 48px);max-height:calc(100% - 48px);width:220px;transform:translateX(0%);">
     <div class="v-navigation-drawer__image"><div class="v-image v-responsive theme--dark" style="height:100%;"><div class="v-image__image v-image__image--cover" id="nav-bg" style="background-position:center center;"></div></div></div>
     <div class="v-navigation-drawer__content"><div class="v-list pr-0 pt-0 ml-0 v-sheet theme--dark" id="navlist"></div></div>
-    <div class="nav-foot" id="nav-foot">voron0-dockprobe</div>
+    <div class="nav-foot"><label class="d-flex align-center" style="gap:6px;cursor:pointer;opacity:1;" title="Mainsail im Hintergrund vorladen – Seitenwechsel ohne Wartezeit"><input type="checkbox" id="shell-on" style="accent-color:var(--v-primary-base);margin:0;"><span id="shell-l">Schneller Wechsel</span></label><div id="nav-foot" class="mt-1">voron0-dockprobe</div></div>
     <div class="v-navigation-drawer__border"></div>
   </nav>
   <div id="scrim" class="v-overlay v-overlay--active theme--dark hide" style="z-index:6;"><div class="v-overlay__scrim" style="opacity:.46;background-color:rgb(33,33,33);border-color:rgb(33,33,33);"></div></div>
@@ -191,7 +191,8 @@ body.no-mainsail .v-btn { background: #333; color: #fff; border: 0; border-radiu
               <x-tools><x-btn variant="text" color="primary" size="default" id="screws" act icon="mdiPlay">Schrauben messen</x-btn></x-tools>
               <div class="v-card__text">
                 <svg id="bed"></svg>
-                <div class="legend-row" id="bed-legend"></div>
+                <div class="d-flex align-center justify-center mt-1" id="bed-state"></div>
+                <div class="legend-row mt-2" id="bed-legend"></div>
               </div>
               <div class="v-data-table v-data-table--dense theme--dark"><div class="v-data-table__wrapper"><table id="screw-tbl"></table></div></div>
               <div class="v-card__text pt-2 small muted">↻ im Uhrzeigersinn · ↺ gegen den Uhrzeigersinn · 00:15 = Vierteldrehung</div>
@@ -370,6 +371,8 @@ body.no-mainsail .v-btn { background: #333; color: #fff; border: 0; border-radiu
 const ICON = {"mdiAlertCircleOutline":"M11,15H13V17H11V15M11,7H13V13H11V7M12,2C6.47,2 2,6.5 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20Z","mdiAlertOctagonOutline":"M8.27,3L3,8.27V15.73L8.27,21H15.73C17.5,19.24 21,15.73 21,15.73V8.27L15.73,3M9.1,5H14.9L19,9.1V14.9L14.9,19H9.1L5,14.9V9.1M11,15H13V17H11V15M11,7H13V13H11V7","mdiAlertOutline":"M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16","mdiArrowCollapseDown":"M19.92,12.08L12,20L4.08,12.08L5.5,10.67L11,16.17V2H13V16.17L18.5,10.66L19.92,12.08M12,20H2V22H22V20H12Z","mdiArrowExpandUp":"M2,20V22H22V20H13V5.83L18.5,11.33L19.92,9.92L12,2L4.08,9.92L5.5,11.33L11,5.83V20H2Z","mdiChartBellCurve":"M9.96,11.31C10.82,8.1 11.5,6 13,6C14.5,6 15.18,8.1 16.04,11.31C17,14.92 18.1,19 22,19V17C19.8,17 19,14.54 17.97,10.8C17.08,7.46 16.15,4 13,4C9.85,4 8.92,7.46 8.03,10.8C7.03,14.54 6.2,17 4,17V2H2V22H22V20H4V19C7.9,19 9,14.92 9.96,11.31Z","mdiCheckCircle":"M12 2C6.5 2 2 6.5 2 12S6.5 22 12 22 22 17.5 22 12 17.5 2 12 2M10 17L5 12L6.41 10.59L10 14.17L17.59 6.58L19 8L10 17Z","mdiCheckboxBlankOutline":"M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M19,5V19H5V5H19Z","mdiCheckboxMarked":"M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3Z","mdiChevronDown":"M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z","mdiChevronTripleLeft":"M9.42,7.41L4.83,12L9.42,16.59L8,18L2,12L8,6L9.42,7.41M15.42,7.41L10.83,12L15.42,16.59L14,18L8,12L14,6L15.42,7.41M21.42,7.41L16.83,12L21.42,16.59L20,18L14,12L20,6L21.42,7.41Z","mdiChevronTripleRight":"M14.58,16.59L19.17,12L14.58,7.41L16,6L22,12L16,18L14.58,16.59M8.58,16.59L13.17,12L8.58,7.41L10,6L16,12L10,18L8.58,16.59M2.58,16.59L7.17,12L2.58,7.41L4,6L10,12L4,18L2.58,16.59Z","mdiCloseThick":"M20 6.91L17.09 4L12 9.09L6.91 4L4 6.91L9.09 12L4 17.09L6.91 20L12 14.91L17.09 20L20 17.09L14.91 12L20 6.91Z","mdiCog":"M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z","mdiConsoleLine":"M13,19V16H21V19H13M8.5,13L2.47,7H6.71L11.67,11.95C12.25,12.54 12.25,13.5 11.67,14.07L6.74,19H2.5L8.5,13Z","mdiContentSave":"M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z","mdiCrosshairsGps":"M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8M3.05,13H1V11H3.05C3.5,6.83 6.83,3.5 11,3.05V1H13V3.05C17.17,3.5 20.5,6.83 20.95,11H23V13H20.95C20.5,17.17 17.17,20.5 13,20.95V23H11V20.95C6.83,20.5 3.5,17.17 3.05,13M12,5A7,7 0 0,0 5,12A7,7 0 0,0 12,19A7,7 0 0,0 19,12A7,7 0 0,0 12,5Z","mdiDelete":"M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z","mdiFileDocumentMultipleOutline":"M16 0H8C6.9 0 6 .9 6 2V18C6 19.1 6.9 20 8 20H20C21.1 20 22 19.1 22 18V6L16 0M20 18H8V2H15V7H20V18M4 4V22H20V24H4C2.9 24 2 23.1 2 22V4H4M10 10V12H18V10H10M10 14V16H15V14H10Z","mdiFormatListChecks":"M3,5H9V11H3V5M5,7V9H7V7H5M11,7H21V9H11V7M11,15H21V17H11V15M5,20L1.5,16.5L2.91,15.09L5,17.17L9.59,12.59L11,14L5,20Z","mdiGrid":"M10,4V8H14V4H10M16,4V8H20V4H16M16,10V14H20V10H16M16,16V20H20V16H16M14,20V16H10V20H14M8,20V16H4V20H8M8,14V10H4V14H8M8,8V4H4V8H8M10,14H14V10H10V14M4,2H20A2,2 0 0,1 22,4V20A2,2 0 0,1 20,22H4C2.92,22 2,21.1 2,20V4A2,2 0 0,1 4,2Z","mdiHistory":"M13.5,8H12V13L16.28,15.54L17,14.33L13.5,12.25V8M13,3A9,9 0 0,0 4,12H1L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3","mdiHome":"M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z","mdiInformationOutline":"M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z","mdiMapMarker":"M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5M12,2A7,7 0 0,0 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9A7,7 0 0,0 12,2Z","mdiMenu":"M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z","mdiMinusThick":"M20 14H4V10H20","mdiMonitorDashboard":"M21,16V4H3V16H21M21,2A2,2 0 0,1 23,4V16A2,2 0 0,1 21,18H14V20H16V22H8V20H10V18H3C1.89,18 1,17.1 1,16V4C1,2.89 1.89,2 3,2H21M5,6H14V11H5V6M15,6H19V8H15V6M19,9V14H15V9H19M5,12H9V14H5V12M10,12H14V14H10V12Z","mdiPlay":"M8,5.14V19.14L19,12.14L8,5.14Z","mdiPlus":"M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z","mdiPlusThick":"M20 14H14V20H10V14H4V10H10V4H14V10H20V14Z","mdiProgressCheck":"M13,2.03V2.05L13,4.05C17.39,4.59 20.5,8.58 19.96,12.97C19.5,16.61 16.64,19.5 13,19.93V21.93C18.5,21.38 22.5,16.5 21.95,11C21.5,6.25 17.73,2.5 13,2.03M11,2.06C9.05,2.25 7.19,3 5.67,4.26L7.1,5.74C8.22,4.84 9.57,4.26 11,4.06V2.06M4.26,5.67C3,7.19 2.25,9.04 2.05,11H4.05C4.24,9.58 4.8,8.23 5.69,7.1L4.26,5.67M15.5,8.5L10.62,13.38L8.5,11.26L7.44,12.32L10.62,15.5L16.56,9.56L15.5,8.5M2.06,13C2.26,14.96 3.03,16.81 4.27,18.33L5.69,16.9C4.81,15.77 4.24,14.42 4.06,13H2.06M7.1,18.37L5.67,19.74C7.18,21 9.04,21.79 11,22V20C9.58,19.82 8.23,19.25 7.1,18.37Z","mdiReload":"M2 12C2 16.97 6.03 21 11 21C13.39 21 15.68 20.06 17.4 18.4L15.9 16.9C14.63 18.25 12.86 19 11 19C4.76 19 1.64 11.46 6.05 7.05C10.46 2.64 18 5.77 18 12H15L19 16H19.1L23 12H20C20 7.03 15.97 3 11 3C6.03 3 2 7.03 2 12Z","mdiRestart":"M12,4C14.1,4 16.1,4.8 17.6,6.3C20.7,9.4 20.7,14.5 17.6,17.6C15.8,19.5 13.3,20.2 10.9,19.9L11.4,17.9C13.1,18.1 14.9,17.5 16.2,16.2C18.5,13.9 18.5,10.1 16.2,7.7C15.1,6.6 13.5,6 12,6V10.6L7,5.6L12,0.6V4M6.3,17.6C3.7,15 3.3,11 5.1,7.9L6.6,9.4C5.5,11.6 5.9,14.4 7.8,16.2C8.3,16.7 8.9,17.1 9.6,17.4L9,19.4C8,19 7.1,18.4 6.3,17.6Z","mdiScrewdriver":"M18,1.83C17.5,1.83 17,2 16.59,2.41C13.72,5.28 8,11 8,11L9.5,12.5L6,16H4L2,20L4,22L8,20V18L11.5,14.5L13,16C13,16 18.72,10.28 21.59,7.41C22.21,6.5 22.37,5.37 21.59,4.59L19.41,2.41C19,2 18.5,1.83 18,1.83M18,4L20,6L13,13L11,11L18,4Z","mdiSend":"M2,21L23,12L2,3V10L17,12L2,14V21Z","mdiSwapHorizontal":"M21,9L17,5V8H10V10H17V13M7,11L3,15L7,19V16H14V14H7V11Z","mdiTimelapse":"M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M16.24,7.76C15.07,6.58 13.53,6 12,6V12L7.76,16.24C10.1,18.58 13.9,18.58 16.24,16.24C18.59,13.9 18.59,10.1 16.24,7.76Z","mdiTranslate":"M12.87,15.07L10.33,12.56L10.36,12.53C12.1,10.59 13.34,8.36 14.07,6H17V4H10V2H8V4H1V6H12.17C11.5,7.92 10.44,9.75 9,11.35C8.07,10.32 7.3,9.19 6.69,8H4.69C5.42,9.63 6.42,11.17 7.67,12.56L2.58,17.58L4,19L9,14L12.11,17.11L12.87,15.07M18.5,10H16.5L12,22H14L15.12,19H19.87L21,22H23L18.5,10M15.88,17L17.5,12.67L19.12,17H15.88Z","mdiTune":"M3,17V19H9V17H3M3,5V7H13V5H3M13,21V19H21V17H13V15H11V21H13M7,9V11H3V13H7V15H9V9H7M21,13V11H11V13H21M15,9H17V7H21V5H17V3H15V9Z","mdiUpdate":"M21,10.12H14.22L16.96,7.3C14.23,4.6 9.81,4.5 7.08,7.2C4.35,9.91 4.35,14.28 7.08,17C9.81,19.7 14.23,19.7 16.96,17C18.32,15.65 19,14.08 19,12.1H21C21,14.08 20.12,16.65 18.36,18.39C14.85,21.87 9.15,21.87 5.64,18.39C2.14,14.92 2.11,9.28 5.62,5.81C9.13,2.34 14.76,2.34 18.27,5.81L21,3V10.12M12.5,8V12.25L16,14.33L15.28,15.54L11,13V8H12.5Z","mdiVideo3d":"M5,7H9A2,2 0 0,1 11,9V15A2,2 0 0,1 9,17H5V15H9V13H6V11H9V9H5V7M13,7H16A3,3 0 0,1 19,10V14A3,3 0 0,1 16,17H13V7M16,15A1,1 0 0,0 17,14V10A1,1 0 0,0 16,9H15V15H16Z","mdiWebcam":"M12,2A7,7 0 0,1 19,9A7,7 0 0,1 12,16A7,7 0 0,1 5,9A7,7 0 0,1 12,2M12,4A5,5 0 0,0 7,9A5,5 0 0,0 12,14A5,5 0 0,0 17,9A5,5 0 0,0 12,4M12,6A3,3 0 0,1 15,9A3,3 0 0,1 12,12A3,3 0 0,1 9,9A3,3 0 0,1 12,6M6,22A2,2 0 0,1 4,20C4,19.62 4.1,19.27 4.29,18.97L6.11,15.81C7.69,17.17 9.75,18 12,18C14.25,18 16.31,17.17 17.89,15.81L19.71,18.97C19.9,19.27 20,19.62 20,20A2,2 0 0,1 18,22H6Z","mdiWrench":"M22.7,19L13.6,9.9C14.5,7.6 14,4.9 12.1,3C10.1,1 7.1,0.6 4.7,1.7L9,6L6,9L1.6,4.7C0.4,7.1 0.9,10.1 2.9,12.1C4.8,14 7.5,14.5 9.8,13.6L18.9,22.7C19.3,23.1 19.9,23.1 20.3,22.7L22.6,20.4C23.1,20 23.1,19.3 22.7,19Z"};
 const VERSION_KEY = "voron0-dockprobe";       // Name des update_manager-Eintrags
 const SETTINGS = "probe_dock_settings.cfg";
+const BASE = location.pathname.replace(/[^/]*$/, "") || "/probe/";   // /probe/ oder /server/dockprobe/
+const SELF_RE = /^\/(probe|server\/dockprobe)\/?$/;
 const SCHEMA = 2;                              // Version des Einstellungsformats
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -389,7 +392,8 @@ const T_EN = {
   "Dashboard": "Dashboard", "Webcam": "Webcam", "Konsole": "Console", "Heightmap": "Heightmap", "G-Code Dateien": "G-Code Files",
   "G-Code-Betrachter": "G-Code Viewer", "Verlauf": "History", "Zeitraffer": "Timelapse", "Maschine": "Machine",
   "bereit": "ready", "druckt": "printing", "getrennt": "disconnected", "Fehler": "error", "startet": "starting", "Shutdown": "shutdown",
-  "Verbindung getrennt": "Connection lost",
+  "Verbindung getrennt": "Connection lost", "Schneller Wechsel": "Fast switching",
+  "Mainsail im Hintergrund vorladen – Seitenwechsel ohne Wartezeit": "Preload Mainsail in the background – switch pages without waiting",
   // Hinweise
   "Klipper: {m}": "Klipper: {m}",
   "Die voron0-dockprobe-Makros wurden in Klipper nicht gefunden. Installation prüfen (./install.sh --analyze).":
@@ -433,7 +437,8 @@ const T_EN = {
   // Bett & Schrauben
   "Bett & Schrauben": "Bed & screws", "Schrauben messen": "Measure screws", "vorne": "front", "Dock": "Dock", "Referenz": "Reference",
   "Fehler bei der Messung": "Measurement failed", "Schraube {n}": "Screw {n}", "vorher {v}": "before {v}",
-  "Düse": "Nozzle", "Probe-Punkt": "Probe point", "Mesh-Bereich": "Mesh area", "Z0-Punkt": "Z0 point",
+  "Düse": "Nozzle", "Probe-Punkt": "Probe point", "Mesh-Bereich": "Mesh area", "Z0-Punkt": "Z0 point", "Anfahrweg": "Approach path",
+  "Probe-Status unbekannt": "Probe state unknown",
   "↻ im Uhrzeigersinn · ↺ gegen den Uhrzeigersinn · 00:15 = Vierteldrehung": "↻ clockwise · ↺ counter-clockwise · 00:15 = quarter turn",
   "Noch keine Messung.": "No measurement yet.",
   // Mesh
@@ -781,12 +786,12 @@ async function buildNav(avail) {
   if (themeFiles["navi"]) {
     try {
       for (const e of await (await fetch(themeFiles["navi"], { cache: "no-store" })).json()) {
-        const self = /^\/probe\/?$/.test(e.href || "");
+        const self = SELF_RE.test(e.href || "");
         items.push({ t: self ? t("Probe") : e.title, h: e.href, target: e.target, path: e.icon, p: e.position ?? 1000, active: self });
       }
     } catch { /* ungültige navi.json */ }
   }
-  if (!items.some((x) => x.active)) items.push({ t: t("Probe"), h: "/probe/", i: "mdiCrosshairsGps", p: 45, active: true });
+  if (!items.some((x) => x.active)) items.push({ t: t("Probe"), h: BASE, i: "mdiCrosshairsGps", p: 45, active: true });
   items.sort((a, b) => a.p - b.p);
   $("navlist").innerHTML = items.map((x) => {
     const ic = x.path ? `<span aria-hidden="true" class="v-icon notranslate theme--${TH}"><svg viewBox="0 0 24 24" class="v-icon__svg"><path d="${esc(x.path)}"></path></svg></span>` : icon(x.i);
@@ -1057,6 +1062,7 @@ const printing = () => ["printing", "paused"].includes((S.print_stats || {}).sta
 const adjMin = (a) => { const m = /(\d+):(\d+)/.exec(a || ""); return m ? (+m[1]) * 60 + (+m[2]) : 0; };
 
 function draw() {
+  if (SHELL.visible) return;
   const ready = klippy === "ready", pr = printing();
   setDis($("restart"), pr);
 
@@ -1109,7 +1115,7 @@ function draw() {
 
 function bindAlerts() {
   const u = $("upd-run"); if (u) u.onclick = () => !u.disabled && runUpdate();
-  const o = $("upd-open"); if (o) o.onclick = () => { location.href = "/config"; };
+  const o = $("upd-open"); if (o) o.onclick = () => showMainsail("/config");
 }
 
 function livePos() {
@@ -1135,24 +1141,41 @@ function travel() {
 
 function drawBed() {
   const { xmin, xmax, ymin, ymax } = travel();
-  const W = xmax - xmin, H = ymax - ymin, pad = 12, sc = 120 / Math.max(W, H);
-  const X = (x) => pad + (x - xmin) * sc, Y = (y) => pad + (ymax - y) * sc;
   const p = CFG.probe || {}, xo = +(p.x_offset || 0), yo = +(p.y_offset || 0);
   const res = (S.screws_tilt_adjust || {}).results || {};
   const v = S["gcode_macro _PROBE_VARS"] || {};
   const bm = CFG.bed_mesh || {};
+  const att = (S["gcode_macro _PROBE_STATE"] || {}).attached;
+  const pos = livePos(), homed = ((S.toolhead || {}).homed_axes || "").length === 3;
   const colOk = "var(--v-success-base)", colWarn = "var(--v-warning-base)", colErr = "var(--v-error-base)", colPri = "var(--v-primary-base)";
-  let svg = `<rect class="bed" x="${pad}" y="${pad}" width="${W * sc}" height="${H * sc}" rx="3"/>`;
-  svg += `<text x="${pad + W * sc / 2}" y="${pad + H * sc + 9}" text-anchor="middle" opacity=".6">${esc(t("vorne"))}</text>`;
+
+  // Die Probe sitzt im Dock bei Düsenposition + Offset – meist außerhalb des Druckbereichs
+  const hasDock = v.dock_x !== undefined && v.dock_y !== undefined;
+  const dpx = hasDock ? +v.dock_x + xo : 0, dpy = hasDock ? +v.dock_y + yo : 0;
+  let lx = xmin, hx = xmax, ly = ymin, hy = ymax;
+  if (hasDock) { lx = Math.min(lx, dpx - 9); hx = Math.max(hx, dpx + 9); ly = Math.min(ly, dpy - 9); hy = Math.max(hy, dpy + 12); }
+  const sc = 140 / Math.max(hx - lx, hy - ly), pad = 6;
+  const X = (x) => pad + (x - lx) * sc, Y = (y) => pad + (hy - y) * sc;
+
+  let svg = `<rect class="bed" x="${X(xmin)}" y="${Y(ymax)}" width="${(xmax - xmin) * sc}" height="${(ymax - ymin) * sc}" rx="3"/>`;
+  svg += `<text x="${X((xmin + xmax) / 2)}" y="${Y(ymin) + 9}" text-anchor="middle" opacity=".6">${esc(t("vorne"))}</text>`;
   const mn = String(bm.mesh_min || "").split(",").map(Number), mx = String(bm.mesh_max || "").split(",").map(Number);
   if (mn.length === 2 && mx.length === 2 && !isNaN(mn[0]) && !isNaN(mx[1]))
     svg += `<rect class="area" x="${X(mn[0])}" y="${Y(mx[1])}" width="${(mx[0] - mn[0]) * sc}" height="${(mx[1] - mn[1]) * sc}"/>`;
-  if (v.dock_x !== undefined)
-    svg += `<rect x="${X(v.dock_x) - 3}" y="${Y(v.dock_y) - 3}" width="6" height="6" fill="none" stroke="currentColor" stroke-opacity=".6" stroke-dasharray="1.5"/>` +
-           `<text x="${X(v.dock_x) - 3}" y="${Y(v.dock_y) - 5}" opacity=".6">${esc(t("Dock"))}</text>`;
   if (v.safe_x !== undefined) {
     const zx = X(+v.safe_x), zy = Y(+v.safe_y);
-    svg += `<path d="M${zx - 3} ${zy}H${zx + 3}M${zx} ${zy - 3}V${zy + 3}" stroke="currentColor" stroke-opacity=".6" stroke-width=".8"/><text x="${zx + 4}" y="${zy - 2}" opacity=".6" style="font-size:5px">Z0</text>`;
+    svg += `<path d="M${zx - 3} ${zy}H${zx + 3}M${zx} ${zy - 3}V${zy + 3}" stroke="currentColor" stroke-opacity=".5" stroke-width=".8"/><text x="${zx + 4}" y="${zy - 2}" opacity=".5" style="font-size:5px">Z0</text>`;
+  }
+  if (hasDock) {
+    // Weg der Probe beim Andocken: Parkposition → Vorposition → Dock-Y → ins Dock
+    const path = [[+v.safe_x, +v.safe_y], [+v.dock_x + +v.approach_dx, +v.staging_y], [+v.dock_x + +v.approach_dx, +v.dock_y], [+v.dock_x, +v.dock_y]]
+      .filter((q) => !q.some(isNaN)).map((q) => `${X(q[0] + xo).toFixed(1)},${Y(q[1] + yo).toFixed(1)}`).join(" ");
+    if (path) svg += `<polyline points="${path}" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width=".7" stroke-dasharray="1.5 1.5"/>`;
+    // Dock-Halter, zur Anfahrseite (rechts) offen
+    const dx = X(dpx), dy = Y(dpy), w = Math.max(9 * sc, 9), h = Math.max(11 * sc, 11);
+    svg += `<rect x="${dx - w / 2}" y="${dy - h / 2}" width="${w}" height="${h}" rx="1.5" fill="currentColor" fill-opacity=".08"/>` +
+      `<path d="M${dx + w / 2} ${dy - h / 2}H${dx - w / 2}V${dy + h / 2}H${dx + w / 2}" fill="none" stroke="currentColor" stroke-opacity=".8" stroke-width="1.4" stroke-linejoin="round"/>` +
+      `<text x="${dx}" y="${dy - h / 2 - 2.5}" text-anchor="middle" style="font-weight:700">${esc(t("Dock"))}</text>`;
   }
   for (const s of screwList()) {
     const px = s.x + xo, py = s.y + yo, r = res[s.key];
@@ -1163,23 +1186,38 @@ function drawBed() {
     }
     svg += `<circle cx="${X(px)}" cy="${Y(py)}" r="5" fill="${col}" fill-opacity=".2" stroke="${col}" stroke-opacity="${r ? 1 : .5}"/>`;
     const top = py > (ymin + ymax) / 2, ty = top ? Y(py) + 12 : Y(py) - 15;
-    const tx = Math.min(Math.max(X(px), pad + 20), pad + W * sc - 20);
+    const tx = Math.min(Math.max(X(px), X(xmin) + 20), X(xmax) - 20);
     svg += `<text x="${tx}" y="${ty}" text-anchor="middle">${esc(s.name)}</text>`;
     if (label) svg += `<text x="${tx}" y="${ty + 7}" text-anchor="middle" style="fill:${col};font-weight:700">${esc(label)}</text>`;
   }
-  // Düse und Probe live
-  const pos = livePos(), homed = ((S.toolhead || {}).homed_axes || "").length === 3;
+  // Düse und Probe (live)
+  let probeAt = null;
+  if (att === true && pos && homed) probeAt = [pos[0] + xo, pos[1] + yo];
+  else if (att === false && hasDock) probeAt = [dpx, dpy];
   if (pos && homed) {
-    const nx = X(pos[0]), ny = Y(pos[1]), att = (S["gcode_macro _PROBE_STATE"] || {}).attached;
-    svg += `<circle cx="${X(pos[0] + xo)}" cy="${Y(pos[1] + yo)}" r="2.2" fill="${att ? colWarn : "none"}" stroke="${colWarn}" stroke-width=".8"/>`;
+    const nx = X(pos[0]), ny = Y(pos[1]);
+    if (att === true) svg += `<line x1="${nx}" y1="${ny}" x2="${X(probeAt[0])}" y2="${Y(probeAt[1])}" stroke="${colWarn}" stroke-width=".8" stroke-opacity=".7"/>`;
     svg += `<circle cx="${nx}" cy="${ny}" r="3.2" fill="none" stroke="${colPri}" stroke-width="1"/><path d="M${nx - 5} ${ny}H${nx + 5}M${nx} ${ny - 5}V${ny + 5}" stroke="${colPri}" stroke-width=".7"/>`;
   }
-  $("bed").setAttribute("viewBox", `0 0 ${W * sc + 2 * pad} ${H * sc + 2 * pad}`);
+  if (probeAt) {
+    const qx = X(probeAt[0]), qy = Y(probeAt[1]);
+    svg += `<circle cx="${qx}" cy="${qy}" r="3.6" fill="${colWarn}" stroke="rgba(0,0,0,.45)" stroke-width=".8"/><circle cx="${qx}" cy="${qy}" r="1.1" fill="rgba(0,0,0,.55)"/>`;
+  }
+  $("bed").setAttribute("viewBox", `0 0 ${((hx - lx) * sc + 2 * pad).toFixed(1)} ${((hy - ly) * sc + 2 * pad + 6).toFixed(1)}`);
   $("bed").innerHTML = svg;
-  $("bed-legend").innerHTML =
-    `<span><i style="border:1.5px solid var(--v-primary-base)"></i>${esc(t("Düse"))}</span>` +
-    `<span><i style="background:var(--v-warning-base)"></i>${esc(t("Probe-Punkt"))}</span>` +
+
+  // Zustand in Textform
+  let state;
+  if (att === true) state = `<span class="chip warning--text">${esc(t("am Toolhead"))}</span>` + (probeAt ? ` <span class="ml-2 mono small">X ${dec(probeAt[0].toFixed(1))}  Y ${dec(probeAt[1].toFixed(1))}</span>` : "");
+  else if (att === false) state = `<span class="chip success--text">${esc(t("im Dock"))}</span>`;
+  else state = `<span class="chip">${esc(t("Probe-Status unbekannt"))}</span>`;
+  $("bed-state").innerHTML = `<span class="small muted mr-2">${esc(t("Probe"))}</span>${state}`;
+  const lg = `<span><i style="border:1.5px solid var(--v-primary-base)"></i>${esc(t("Düse"))}</span>` +
+    `<span><i style="background:var(--v-warning-base)"></i>${esc(t("Probe"))}</span>` +
+    `<span><i style="border:1.5px solid currentColor;border-right-color:transparent;border-radius:1px"></i>${esc(t("Dock"))}</span>` +
+    `<span><i style="border-top:1px dashed currentColor;border-radius:0;height:0;width:14px;vertical-align:3px"></i>${esc(t("Anfahrweg"))}</span>` +
     `<span><i style="border:1px dashed currentColor;border-radius:0"></i>${esc(t("Mesh-Bereich"))}</span>`;
+  if ($("bed-legend").dataset.k !== LANG) { $("bed-legend").innerHTML = lg; $("bed-legend").dataset.k = LANG; }
 
   // Tabelle mit Vergleich zur vorherigen Messung
   const hist = store.get("screwHist", []), prevRes = hist.length > 1 ? hist[0] : null;
@@ -1244,7 +1282,7 @@ function buildPaperButtons() {
 }
 
 function mpKey(e) {
-  if (e.target.closest("input, select, textarea")) return;
+  if (SHELL.visible || e.target.closest("input, select, textarea")) return;
   const map = { ArrowUp: 0.05, ArrowDown: -0.05, PageUp: 0.1, PageDown: -0.1 };
   let d = map[e.key];
   if (d === undefined) return;
@@ -1618,20 +1656,130 @@ function moveSlider() {
 }
 
 // =====================================================================
+// Schneller Seitenwechsel: Mainsail läuft im Hintergrund (unsichtbarer iframe)
+// und wird beim Klick auf einen Menüpunkt nur eingeblendet – ohne Neustart.
+// Abschalten: /probe/?shell=0 oder Schalter in der Seitenleiste.
+// =====================================================================
+const SHELL = {
+  frame: null, ready: false, visible: false,
+  enabled: window.top === window && new URLSearchParams(location.search).get("shell") !== "0" && store.get("shell", true),
+};
+window.dockprobeShowProbe = () => showProbe(true);
+
+function shellInit() {
+  if (!SHELL.enabled || SHELL.frame) return;
+  const f = document.createElement("iframe");
+  f.id = "ms-frame"; f.title = "Mainsail"; f.src = "/";
+  f.setAttribute("aria-hidden", "true"); f.inert = true; f.tabIndex = -1;
+  f.style.cssText = "position:fixed;inset:0;width:100%;height:100%;border:0;z-index:300;visibility:hidden;pointer-events:none;background:#121212;";
+  f.addEventListener("load", hookFrame);
+  document.body.appendChild(f);
+  SHELL.frame = f;
+}
+
+function frameDoc() { try { return SHELL.frame && SHELL.frame.contentDocument; } catch { return null; } }
+
+function hookFrame() {
+  const doc = frameDoc();
+  if (!doc || doc.__dockprobeHooked) return;
+  doc.__dockprobeHooked = true;
+  // Klicks auf "Probe" in Mainsails Menü abfangen → Probe-Seite einblenden
+  doc.addEventListener("click", (e) => {
+    const a = e.target.closest && e.target.closest("a[href]");
+    if (!a) return;
+    let u; try { u = new URL(a.getAttribute("href"), location.origin); } catch { return; }
+    if (u.origin === location.origin && SELF_RE.test(u.pathname) && a.target !== "_blank") {
+      e.preventDefault(); e.stopPropagation(); showProbe(true);
+    }
+  }, true);
+  // bereit, sobald Mainsails Menü steht
+  const poll = setInterval(() => {
+    const d = frameDoc();
+    if (!d) return clearInterval(poll);
+    if (d.querySelector(".v-navigation-drawer a[href]")) { SHELL.ready = true; clearInterval(poll); }
+  }, 300);
+}
+
+function navigateFrame(path) {
+  const doc = frameDoc(), win = SHELL.frame.contentWindow;
+  const cur = win.location.pathname + win.location.search;
+  if (cur === path) return;
+  const link = [...doc.querySelectorAll(".v-navigation-drawer a[href]")].find((a) => a.getAttribute("href") === path);
+  if (link) { link.click(); return; }
+  const vm = doc.querySelector(".v-application") && doc.querySelector(".v-application").__vue__;
+  if (vm && vm.$router) { vm.$router.push(path).catch(() => {}); return; }
+  win.location.href = path;
+}
+
+function showMainsail(path, push = true) {
+  if (!SHELL.enabled || !SHELL.ready) { location.href = path; return; }
+  try { navigateFrame(path); } catch { location.href = path; return; }
+  const f = SHELL.frame;
+  f.style.visibility = "visible"; f.style.pointerEvents = "auto"; f.removeAttribute("aria-hidden"); f.inert = false;
+  SHELL.visible = true;
+  document.documentElement.style.overflow = "hidden";
+  if (push) history.pushState({ dockprobe: "mainsail" }, "", path);
+  clearInterval(SHELL.titleT);
+  SHELL.titleT = setInterval(() => { const d = frameDoc(); if (SHELL.visible && d && d.title) document.title = d.title; }, 1500);
+  setTimeout(() => { const d = frameDoc(); if (d && d.title) document.title = d.title; window.dispatchEvent(new Event("resize")); try { f.contentWindow.dispatchEvent(new Event("resize")); } catch { /* egal */ } }, 50);
+  f.focus();
+}
+
+function showProbe(push = true) {
+  if (!SHELL.visible) return;
+  const f = SHELL.frame;
+  f.style.visibility = "hidden"; f.style.pointerEvents = "none"; f.setAttribute("aria-hidden", "true"); f.inert = true;
+  try { f.contentWindow.blur(); } catch { /* egal */ }
+  window.focus();
+  SHELL.visible = false;
+  clearInterval(SHELL.titleT);
+  document.documentElement.style.overflow = "";
+  if (push) history.pushState({ dockprobe: "probe" }, "", BASE);
+  document.title = `${t("Probe")} – ${$("pname").textContent}`;
+  render();
+}
+
+/* der unsichtbare iframe darf den Fokus nicht an sich ziehen (z. B. Autofokus in Mainsail) */
+window.addEventListener("blur", () => setTimeout(() => {
+  if (!SHELL.visible && SHELL.frame && document.activeElement === SHELL.frame) { try { SHELL.frame.contentWindow.blur(); } catch { /* egal */ } window.focus(); document.body.focus(); }
+}, 0));
+
+window.addEventListener("popstate", () => {
+  if (SELF_RE.test(location.pathname)) showProbe(false);
+  else showMainsail(location.pathname + location.search, false);
+});
+
+/* Menü- und Logo-Links dieser Seite über den Hintergrund-Mainsail öffnen */
+document.addEventListener("click", (e) => {
+  const a = e.target.closest("#navlist a[href], .topbar a[href]");
+  if (!a || a.target === "_blank" || e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+  let u; try { u = new URL(a.getAttribute("href"), location.origin); } catch { return; }
+  if (u.origin !== location.origin) return;
+  e.preventDefault();
+  if (SELF_RE.test(u.pathname)) return;
+  if (isMobile()) { NAV.open = false; layoutNav(); }
+  showMainsail(u.pathname + u.search);
+}, true);
+
+// =====================================================================
 // Sprache, Start
 // =====================================================================
+function showLangBtn() {
+  $("lang-t").textContent = LANG.toUpperCase();
+  $("lang").title = LANG === "de" ? "Sprache: Deutsch – zu English wechseln" : "Language: English – switch to Deutsch";
+}
 function detectLang(mainsailLang) {
   const l = String(mainsailLang || navigator.language || "de").toLowerCase();
   return l.startsWith("de") ? "de" : "en";
 }
 function setLang(l, persist) {
   if (persist) store.set("lang", l);
-  if (l === LANG) { $("lang-t").textContent = LANG === "en" ? "DE" : "EN"; return; }
+  if (l === LANG) { showLangBtn(); return; }
   if (LANG === "en") return location.reload();   // zurück auf Deutsch: neu laden
   LANG = l;
   document.documentElement.lang = l;
   translateStatic();
-  $("lang-t").textContent = "DE";
+  showLangBtn();
   buildJog(); buildPaperButtons();
   if (lastAvail) buildNav(lastAvail);
   if (ED) { readEditor(); fillEditor(); }
@@ -1640,7 +1788,9 @@ function setLang(l, persist) {
 }
 
 function reveal() {
+  if (!document.body.classList.contains("loading")) return;
   document.body.classList.remove("loading");
+  setTimeout(shellInit, 1500);
   requestAnimationFrame(() => { fixLegends(); moveSlider(); });
   if (document.fonts) document.fonts.ready.then(() => { fixLegends(); moveSlider(); });
 }
@@ -1746,11 +1896,16 @@ function wire() {
   $("screw-add").onclick = () => { if (!ED) return; readEditor(); ED.model.screws.push({ name: t("Schraube {n}", { n: ED.model.screws.length + 1 }), x: 60, y: 60 }); drawScrewEditor(); updatePreview(); };
   $("ed-save").onclick = () => !$("ed-save").disabled && saveSettings();
   $("ed-reset").onclick = () => { if (ED) { ED.model = JSON.parse(JSON.stringify(ED.base)); fillEditor(); } };
+  $("shell-on").checked = SHELL.enabled;
+  $("shell-on").onchange = () => { store.set("shell", $("shell-on").checked); location.reload(); };
   $("setup-reset").onclick = async () => { if (await dialog(t("Einrichtung"), esc(t("Einrichtung zurücksetzen?")), "OK")) { store.set("setup", {}); render(); } };
   window.addEventListener("resize", () => { layoutNav(); layoutCols(); moveSlider(); if (ACC.samples.length) drawAccuracy(); });
 }
 
 (async function start() {
+  if (window.top !== window) {
+    try { if (window.top.dockprobeShowProbe) { window.top.dockprobeShowProbe(); history.back(); return; } } catch { /* fremde Seite */ }
+  }
   expand();
   buildJog(); buildPaperButtons();
   wire();
