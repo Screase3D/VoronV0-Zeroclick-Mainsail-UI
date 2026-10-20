@@ -2,6 +2,8 @@
 
 *English version: [README.en.md](README.en.md)*
 
+![Probe-Seite in Mainsail](docs/screenshot.png)
+
 Dock-Probe-Kit für den **Voron V0.2** mit Z-Endstop unten und einer magnetisch angedockten Probe (z. B. ZeroClick).
 Ein Script analysiert deine Klipper-Config, rechnet Mesh- und Schraubenpositionen aus den Probe-Offsets aus und richtet alles ein:
 
@@ -97,14 +99,28 @@ Nach jedem Drehen an den Bettschrauben den Papiertest (Schritt 2) wiederholen.
 ## Web-Oberfläche
 
 Erreichbar über den Menüpunkt **Probe** in Mainsail bzw. `http://<drucker>/probe/`.
-Die Seite übernimmt Mainsails Seitenleiste (inkl. eigener `navi.json`-Einträge), Druckernamen, Logo, Primärfarbe und Hell-/Dunkelmodus.
 
-- Probe-Status, Andocken/Ablegen, Genauigkeit, z_offset-Messung mit „Übernehmen“
-- Papiertest-Steuerung (erscheint automatisch während `CALIBRATE_Z_ENDSTOP`)
-- Schraubenanzeige mit Drehrichtung, Mesh-Heatmap, Konsole
-- **Einstellungen bearbeiten:** Offsets, Pin, Dock, Schraubenpositionen, Mesh. Positionen lassen sich anfahren und per Klick übernehmen.
-  Mesh-Grenzen, Schrauben-Messpunkte und Referenzpunkt werden live neu berechnet. Beim Speichern zeigt ein Dialog alle Änderungen,
-  die alte Datei wird als `.bak` gesichert, dann startet Klipper neu. Steht `z_offset` im SAVE_CONFIG-Block, wird er dort geändert.
+**Aussehen:** Die Seite lädt zur Laufzeit die Stylesheets deiner installierten Mainsail-Version und nutzt dieselben
+Bausteine (Panels, Buttons, Eingabefelder, Seitenleiste). Übernommen werden außerdem Mainsails Theme (z. B. „Voron Design“),
+Primär- und Logofarbe, Hell-/Dunkelmodus, Icons-only-Navigation sowie alles aus `config/.theme/`
+(`custom.css`, `sidebar-logo`, `sidebar-background`, `main-background`, `navi.json`).
+
+**Panels**
+
+- **Einrichtung:** Checkliste in der richtigen Reihenfolge (Erkennung → Dock-Test → Genauigkeit → Schrauben → Papiertest → z_offset → Mesh).
+  Schritte haken sich nach erfolgreicher Messung selbst ab.
+- **Probe:** Status, Andocken/Ablegen, Genauigkeitstest mit Diagramm und Bewertung, z_offset-Messung mit „Übernehmen“.
+- **Dock-Test:** `DOCK_TEST CYCLES=n F=mm/min` – mehrfach andocken/ablegen, jeder Schritt wird über den Probe-Pin geprüft.
+- **Bett & Schrauben:** Live-Ansicht mit Düse, Probe-Punkt, Dock, Mesh-Bereich und Z0-Punkt; Schrauben mit Drehrichtung und
+  Vergleich zur vorherigen Messung.
+- **Bed Mesh:** Heatmap, Profile laden/speichern/löschen.
+- **Kalibrierung:** `CALIBRATE_ALL` mit Temperatur, Soak, Schrauben und Mesh.
+- **Einstellungen:** Offsets, Pin, Dock, Schraubenpositionen, Mesh, Sprache der Klipper-Meldungen. Positionen mit den
+  Verfahr-Buttons anfahren und per Klick übernehmen. Mesh-Grenzen, Messpunkte und Referenzpunkt werden live berechnet;
+  beim Speichern zeigt ein Dialog alle Änderungen, die alte Datei wird als `.bak` gesichert, dann startet Klipper neu.
+- **Papiertest:** erscheint während `CALIBRATE_Z_ENDSTOP` als Dialog wie in Mainsail, auch per Tastatur (↑/↓, Shift, Bild↑/↓).
+- **Konsole**
+
 Voraussetzung ist, dass der Browser bei Moonraker als vertrauenswürdig gilt (`trusted_clients`) – wie bei Mainsail ohne Login.
 
 ## Sprache
@@ -115,8 +131,29 @@ Voraussetzung ist, dass der Browser bei Moonraker als vertrauenswürdig gilt (`t
 
 ## Update & Deinstallation
 
-Updates erscheinen in Mainsail unter *Maschine → Update-Manager*.
-Neue Werte (z. B. andere Offsets): `./install.sh --reconfigure`.
+Der Installer trägt das Repo in `moonraker.conf` ein:
+
+```ini
+[update_manager voron0-dockprobe]
+type: git_repo
+channel: dev
+path: ~/VoronV0-Zeroclick-Mainsail-UI
+origin: https://github.com/Screase3D/VoronV0-Zeroclick-Mainsail-UI.git
+primary_branch: main
+managed_services: klipper
+info_tags:
+    desc=ZeroClick Dock-Probe (Voron V0.2)
+```
+
+Neue Versionen auf GitHub erscheinen dann in Mainsail unter *Maschine → Update-Manager* und zusätzlich als Hinweis auf
+der Probe-Seite (mit „Jetzt aktualisieren“). Beim Update gilt:
+
+- Makros (`probe_dock.cfg` ist ein Link ins Repo) und Web-Oberfläche sind sofort aktuell, Klipper wird automatisch neu gestartet.
+- Deine Werte in `probe_dock_settings.cfg` bleiben unverändert. Bringt ein Update neue Einstellungsfelder mit, zeigt die
+  Probe-Seite einen Hinweis – einmal unter *Einstellungen* speichern ergänzt sie.
+- Voraussetzung: per `git clone` installiert und keine lokalen Änderungen im Repo-Ordner (sonst meldet Moonraker „dirty“).
+
+Neue Werte per Script: `./install.sh --reconfigure`.
 
 ```bash
 ./uninstall.sh

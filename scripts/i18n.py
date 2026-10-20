@@ -49,7 +49,7 @@ PHRASES = [
     ("Y-Bahn vor dem Dock / Löse-Richtung", "Y lane in front of the dock / release direction"),
     ("Z-Höhe für Dock-Fahrten", "Z height for dock moves"), ("Verfahrgeschwindigkeit mm/min", "Travel speed mm/min"),
     ("Dock-Geschwindigkeit mm/min", "Dock speed mm/min"),
-    ("Andock-Status per Probe-Pin prüfen (j/n)", "Verify dock state via probe pin (y/n)"),
+    ("Andock-Status per Probe-Pin prüfen", "Verify dock state via probe pin"),
     ("Bettschrauben: Düsenposition, wenn die Düse genau über der Schraube steht",
      "Bed screws: nozzle position when the nozzle is exactly above the screw"),
     ("Anzahl Schrauben", "Number of screws"), ("Gewinde (CW-M3 / CCW-M3)", "Thread (CW-M3 / CCW-M3)"),

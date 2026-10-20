@@ -6,6 +6,7 @@
 #
 #  Die Zeilen mit "#@" merkt sich der Installer für --reconfigure.
 # =====================================================================
+#@schema 2
 #@mesh_margin ${mesh_margin}
 ${screw_meta}
 

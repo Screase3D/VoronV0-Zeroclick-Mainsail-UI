@@ -438,7 +438,11 @@ class Asker:
 
     def ask(self, prompt, default, kind="float"):
         prompt = tr(prompt)
-        shown = "" if default is None else (fmt(default) if kind == "float" else str(default))
+        if kind == "bool":
+            yes, no = ("j", "n") if i18n.LANG == "de" else ("y", "n")
+            shown = yes if default else no
+        else:
+            shown = "" if default is None else (fmt(default) if kind == "float" else str(default))
         if not self.interactive:
             if default is None:
                 raise SystemExit(tr(f"Kein Wert für '{prompt}' – interaktiv ausführen oder Wert in der Config setzen."))
@@ -505,7 +509,7 @@ def gather(env, A, asker, reconfigure):
     V["safe_z"] = asker.ask("Z-Höhe für Dock-Fahrten", opt_num(v, "variable_safe_z", max(14.0, math.ceil(V["z_offset"]) + 5)))
     V["travel_f"] = asker.ask("Verfahrgeschwindigkeit mm/min", opt_num(v, "variable_travel_f", 4000.0))
     V["dock_f"] = asker.ask("Dock-Geschwindigkeit mm/min", opt_num(v, "variable_dock_f", 4000.0))
-    V["verify"] = asker.ask("Andock-Status per Probe-Pin prüfen (j/n)",
+    V["verify"] = asker.ask("Andock-Status per Probe-Pin prüfen",
                             str(v.get("variable_verify", "True")).lower() != "false", kind="bool")
 
     info("")
@@ -881,7 +885,9 @@ def um_install(env, ops):
              f"path: {REPO_DIR}\n"
              f"origin: {origin}\n"
              f"primary_branch: {git_branch()}\n"
-             f"managed_services: klipper\n")
+             f"managed_services: klipper\n"
+             f"info_tags:\n"
+             f"    desc=ZeroClick Dock-Probe (Voron V0.2)\n")
     ops.write(mc, text.rstrip("\n") + "\n" + block)
     ok("Update-Manager in moonraker.conf eingetragen")
     return True
@@ -1095,16 +1101,16 @@ def do_uninstall(env, A, args, ops, asker):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="voron0-dockprobe – Installer")
-    ap.add_argument("--analyze", action="store_true", help="nur analysieren, nichts ändern")
-    ap.add_argument("--uninstall", action="store_true", help="Paket entfernen")
-    ap.add_argument("--reconfigure", action="store_true", help="Einstellungen neu abfragen und erzeugen")
-    ap.add_argument("--yes", "-y", action="store_true", help="alle Vorschläge übernehmen, nicht nachfragen")
-    ap.add_argument("--dry-run", action="store_true", help="nur anzeigen, was passieren würde")
-    ap.add_argument("--no-web", action="store_true", help="Web-Oberfläche nicht einrichten")
-    ap.add_argument("--no-restart", action="store_true", help="Klipper nicht neu starten")
-    ap.add_argument("--config-dir", help="Klipper-Config-Ordner (Standard: ~/printer_data/config)")
-    ap.add_argument("--nginx-site", help="nginx-Site-Datei von Mainsail")
+    ap = argparse.ArgumentParser(description="voron0-dockprobe – Installer (de/en)")
+    ap.add_argument("--analyze", action="store_true", help="nur analysieren / analyse only")
+    ap.add_argument("--uninstall", action="store_true", help="Paket entfernen / uninstall")
+    ap.add_argument("--reconfigure", action="store_true", help="Einstellungen neu abfragen / ask for settings again")
+    ap.add_argument("--yes", "-y", action="store_true", help="Vorschläge übernehmen / accept all suggestions")
+    ap.add_argument("--dry-run", action="store_true", help="nur anzeigen / show what would happen")
+    ap.add_argument("--no-web", action="store_true", help="ohne Web-Oberfläche / without web UI")
+    ap.add_argument("--no-restart", action="store_true", help="Klipper nicht neu starten / do not restart Klipper")
+    ap.add_argument("--config-dir", help="Config-Ordner / config folder (~/printer_data/config)")
+    ap.add_argument("--nginx-site", help="nginx-Site von Mainsail / Mainsail nginx site file")
     ap.add_argument("--lang", choices=("de", "en"), help="Sprache der Ausgaben und Meldungen / language")
     args = ap.parse_args()
 

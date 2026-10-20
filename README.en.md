@@ -2,6 +2,8 @@
 
 *Deutsche Version: [README.md](README.md)*
 
+![Probe page in Mainsail](docs/screenshot.png)
+
 Dock probe kit for the **Voron V0.2** with the Z endstop at the bottom and a magnetically docked probe (e.g. ZeroClick).
 One script analyses your Klipper config, calculates mesh and screw positions from the probe offsets and sets everything up:
 
@@ -9,7 +11,8 @@ One script analyses your Klipper config, calculates mesh and screw positions fro
 - automatic probe handling for `BED_MESH_CALIBRATE`, `SCREWS_TILT_CALCULATE`, `PROBE_ACCURACY`
 - `CALIBRATE_ALL`: home, heat, screw check and mesh in one run
 - `CALIBRATE_Z_ENDSTOP` (paper test) and `MEASURE_PROBE_OFFSET`
-- calibration UI as its own **“Probe”** entry in the Mainsail sidebar, including a settings editor
+- calibration UI as its own **“Probe”** entry in the Mainsail sidebar: setup checklist, dock test, accuracy chart,
+  live bed view, mesh profiles and a settings editor – rendered with Mainsail's own styles and your active theme
 - updates via the Mainsail update manager
 
 > **Principle:** Z=0 still comes from the Z endstop. The probe only measures relative heights (mesh, screws).
@@ -64,10 +67,21 @@ Repeat step 2 after every turn of a bed screw. `PROBE_CALIBRATE` is locked on pu
 - **Web UI:** follows Mainsail's/the browser's language; switch with **DE/EN** in the top bar.
 - **Klipper macro messages:** `variable_lang` in `probe_dock_settings.cfg` (`"de"` or `"en"`), also in the UI under *Settings → Probe*.
 
+## Web UI
+
+The page loads the stylesheets of your installed Mainsail at runtime and uses the same building blocks, so it follows your
+Mainsail theme, primary/logo colour, light/dark mode and everything in `config/.theme/` (`custom.css`, logos, backgrounds, `navi.json`).
+The paper test opens as a dialog like in Mainsail and can be driven with the keyboard (↑/↓, Shift, PgUp/PgDn).
+
 ## Update & uninstall
 
-Updates appear in Mainsail under *Machine → Update Manager*. `./uninstall.sh` removes includes, symlink, nginx entry, menu entry
-and update manager and optionally restores commented-out sections.
+The installer registers the repo in `moonraker.conf` (`[update_manager voron0-dockprobe]`, `type: git_repo`, `managed_services: klipper`).
+New versions on GitHub appear in Mainsail under *Machine → Update Manager* and as a notice on the Probe page.
+Macros and web UI update immediately, Klipper restarts automatically, and your `probe_dock_settings.cfg` is never touched.
+If an update adds new settings fields, the Probe page tells you – saving once under *Settings* adds them.
+Requires a `git clone` install without local changes in the repo folder.
+
+`./uninstall.sh` removes includes, symlink, nginx entry, menu entry and update manager and optionally restores commented-out sections.
 
 ## Safety
 
