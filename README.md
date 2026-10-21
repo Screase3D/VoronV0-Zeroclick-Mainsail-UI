@@ -2,9 +2,7 @@
 
 > [!NOTE]
 > **This repository was written by Claude Opus 5.5**, Anthropic's AI model – code, macros, installer, web UI and
-> documentation. Dennis ([Screase3D](https://github.com/Screase3D)) defined the requirements, tested every step on his
-> Voron V0.2 and maintains the project. Review the macros before using them on your printer and run the first dock
-> moves slowly.
+> documentation. Review the macros before using them on your printer and run the first dock moves slowly.
 
 **Dock probe kit for the Voron V0.2** – Klipper macros, a one-command installer and a calibration page that
 plugs into Mainsail's sidebar. Built for a magnetically docked [ZeroClick](https://github.com/zruncho3d/ZeroClick)-style
@@ -335,7 +333,7 @@ This project is not affiliated with or endorsed by any of the projects above.
 
 ## License
 
-Copyright © 2026 Dennis ([Screase3D](https://github.com/Screase3D))
+Copyright © 2026 [Screase3D](https://github.com/Screase3D)
 
 Licensed under the **GNU General Public License v3.0 or later** – see [LICENSE](LICENSE).
 GPL-3.0 matches the Klipper ecosystem and the projects this kit builds on: the attach/detach sequence derives from the
