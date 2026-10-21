@@ -309,6 +309,15 @@ probe pin *during* a print without stalling the motion queue, so the check runs 
 
 If KlipperScreen is installed, the installer offers a **Probe** menu under *More*:
 
+![The Probe menu in KlipperScreen](docs/klipperscreen-probe.png)
+
+<table>
+<tr>
+<td width="50%"><img src="docs/klipperscreen-more.png" alt="KlipperScreen's More menu with the Probe entry"><br><sub><i>More</i> → <b>Probe</b></sub></td>
+<td width="50%"><img src="docs/klipperscreen-paper-test.png" alt="KlipperScreen's Z Calibrate panel during CALIBRATE_Z_ENDSTOP"><br><sub><b>Z endstop paper test</b> opens KlipperScreen's own <i>Z Calibrate</i> panel</sub></td>
+</tr>
+</table>
+
 | Button | Command |
 |---|---|
 | Attach probe / Dock probe | `ATTACH_PROBE` / `DETACH_PROBE` |
