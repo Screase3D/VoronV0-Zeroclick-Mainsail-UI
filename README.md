@@ -1,5 +1,11 @@
 # VoronV0-Zeroclick-Mainsail-UI
 
+> [!NOTE]
+> **This repository was written by Claude Opus 5.5**, Anthropic's AI model – code, macros, installer, web UI and
+> documentation. Dennis ([Screase3D](https://github.com/Screase3D)) defined the requirements, tested every step on his
+> Voron V0.2 and maintains the project. Review the macros before using them on your printer and run the first dock
+> moves slowly.
+
 **Dock probe kit for the Voron V0.2** – Klipper macros, a one-command installer and a calibration page that
 plugs into Mainsail's sidebar. Built for a magnetically docked [ZeroClick](https://github.com/zruncho3d/ZeroClick)-style
 probe on a printer that keeps its Z endstop.
