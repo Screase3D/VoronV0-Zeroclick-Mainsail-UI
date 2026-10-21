@@ -6,6 +6,7 @@ Called via ./install.sh. Needs only the Python standard library.
 SPDX-License-Identifier: GPL-3.0-or-later
 """
 import argparse
+import ast
 import datetime
 import glob
 import json
@@ -61,6 +62,72 @@ NAVI_ICON = ("M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,
              "C3.5,6.83 6.83,3.5 11,3.05V1H13V3.05C17.17,3.5 20.5,6.83 20.95,11H23V13H20.95"
              "C20.5,17.17 17.17,20.5 13,20.95V23H11V20.95C6.83,20.5 3.5,17.17 3.05,13"
              "M12,5A7,7 0 0,0 5,12A7,7 0 0,0 12,19A7,7 0 0,0 19,12A7,7 0 0,0 12,5Z")
+
+SETTINGS_SCHEMA = 3  # matches "#@schema" in probe_dock_settings.cfg.tpl
+KS_DIR = REPO_DIR / "klipperscreen"
+KS_NAME = "dockprobe_klipperscreen.conf"
+KS_INCLUDE = f"[include {KS_NAME}]"
+KS_CREATED = "# created by voron0-dockprobe"
+
+GUARD_LINE = "PROBE_GUARD  # dockprobe: the probe must be docked before printing"
+GUARD_RE = re.compile(r"^\s*PROBE_GUARD\b.*#\s*dockprobe")
+PROBE_USE_RE = re.compile(r"\b(BED_MESH_CALIBRATE|CALIBRATE_ALL|DETACH_PROBE|ATTACH_PROBE|SCREWS_TILT_CALCULATE|"
+                          r"PROBE_ACCURACY|QUAD_GANTRY_LEVEL|Z_TILT_ADJUST)\b", re.I)
+
+# dock layouts: waypoints [dx, dy] relative to the dock position (d1 = approach, d2 = lane/release)
+DOCK_LAYOUTS = ("right-front", "left-front", "zeroclick", "custom")
+
+
+def preset_paths(layout, d1, d2):
+    if layout == "left-front":
+        return ([[-d1, -d2], [-d1, 0], [0, 0], [-d1, 0]], [[-d1, -d2], [-d1, 0], [0, 0], [0, -d2]])
+    if layout == "zeroclick":
+        return ([[-d1, -d2], [-d1, 0], [0, 0]], [[0, 0], [-d1, 0], [-d1, -d2]])
+    return ([[d1, -d2], [d1, 0], [0, 0], [d1, 0]], [[d1, -d2], [d1, 0], [0, 0], [0, -d2]])
+
+
+def parse_path(text):
+    """'20,-19; 20,0; 0,0' or '[[20, -19], [20, 0], [0, 0]]' -> [[20.0, -19.0], ...]"""
+    t = str(text).strip()
+    if t.startswith("["):
+        val = ast.literal_eval(t)
+    else:
+        val = [[float(a) for a in pt.split(",")] for pt in re.split(r"[;|]", t) if pt.strip()]
+    out = [[float(p[0]), float(p[1])] for p in val if len(p) == 2]
+    if len(out) < 2 or len(out) != len(val) or not any(abs(x) < 1e-9 and abs(y) < 1e-9 for x, y in out):
+        raise ValueError("invalid path")
+    return out
+
+
+def path_cfg(path):
+    return "[" + ", ".join(f"[{fmt(x)}, {fmt(y)}]" for x, y in path) + "]"
+
+
+def path_short(path):
+    return "; ".join(f"{fmt(x)},{fmt(y)}" for x, y in path)
+
+
+def current_paths(v):
+    """Dock layout and paths from existing _PROBE_VARS (incl. settings files without paths)."""
+    try:
+        dx, dy = num(v.get("variable_dock_x", "1")), num(v.get("variable_dock_y", "119"))
+    except ValueError:
+        dx, dy = 1.0, 119.0
+    layout = str(v.get("variable_dock_layout", "")).strip("'\"") or None
+    try:
+        attach = parse_path(v["variable_attach_path"])
+        detach = parse_path(v["variable_detach_path"])
+    except (KeyError, ValueError, SyntaxError):
+        d1 = opt_num(v, "variable_approach_dx", 20.0)
+        d2 = abs(dy - opt_num(v, "variable_staging_y", dy - 19.0)) or 19.0
+        attach, detach = preset_paths("right-front", d1, d2)
+        layout = "right-front"
+    if layout not in DOCK_LAYOUTS:
+        layout = "custom"
+    d1 = abs(attach[0][0]) or 20.0
+    d2 = abs(attach[0][1]) or 19.0
+    return layout, attach, detach, d1, d2
+
 
 SECTION_RE = re.compile(r"^\[([^\]]+)\]\s*(?:[#;].*)?$")
 OPTION_RE = re.compile(r"^([A-Za-z0-9_]+)\s*[:=]\s*(.*?)\s*$")
@@ -368,7 +435,52 @@ def analyze(env):
             A["navi_has_entry"] = None
     mc = env["moonraker_conf"]
     A["um_present"] = bool(mc) and f"[{UM_SECTION}]" in mc.read_text(errors="replace")
+
+    # PRINT_START print guard
+    A["guard"] = guard_plan(ctx, cfg)
+
+    # KlipperScreen
+    ks_conf = cfg / "KlipperScreen.conf"
+    A["ks_conf"] = ks_conf
+    A["ks_present"] = ks_conf.exists() or (env["home"] / "KlipperScreen").is_dir()
+    A["ks_menu"] = (cfg / KS_NAME).is_symlink() or (ks_conf.exists() and KS_INCLUDE in ks_conf.read_text(errors="replace"))
     return A
+
+
+def guard_plan(ctx, cfg):
+    """Where PROBE_GUARD would go in PRINT_START (after the last probing command)."""
+    secs = [s for s in ctx["sections"] if s.lname in ("gcode_macro print_start", "gcode_macro start_print")]
+    if not secs:
+        return {"found": False}
+    sec = secs[-1]
+    plan = {"found": True, "file": sec.file, "present": False, "name": sec.name.split()[-1],
+            "inside": os.path.realpath(sec.file).startswith(str(cfg) + os.sep) and not os.path.islink(sec.file)}
+    lines = Path(sec.file).read_text(errors="replace").split("\n")
+    g = next((i for i in range(sec.start + 1, sec.end) if re.match(r"^gcode\s*:", lines[i])), None)
+    if g is None:
+        plan["inside"] = False
+        return plan
+    end = g + 1
+    while end < len(lines) and (lines[end].strip() == "" or lines[end][0] in " \t") and not lines[end].startswith("#*#"):
+        end += 1
+    code = [(i, lines[i]) for i in range(g + 1, end)]
+    plain = lambda l: re.split(r"\s[#;]|^\s*[#;]", l)[0]  # noqa: E731
+    plan["present"] = any(re.search(r"\bPROBE_GUARD\b", plain(l)) for _, l in code)
+    ref = next((i for i, l in reversed(code) if PROBE_USE_RE.search(plain(l))), None)
+    if ref is None:
+        ref = next((i for i, l in code if re.match(r"^\s*G28\b", plain(l))), g)
+    # never inside an {% if %}/{% for %} block: move behind the block that contains the reference line
+    depth = {}
+    d = 0
+    for i, l in code:
+        d += len(re.findall(r"{%-?\s*(?:if|for)\b", l)) - len(re.findall(r"{%-?\s*end(?:if|for)\b", l))
+        depth[i] = d
+    if ref != g and depth.get(ref, 0) > 0:
+        ref = next((i for i, _ in code if i > ref and depth[i] == 0), ref)
+    indent = re.match(r"^\s*", lines[ref]).group(0) if ref != g else \
+        next((re.match(r"^\s*", l).group(0) for _, l in code if l.strip()), "  ")
+    plan.update(line=ref, indent=indent or "  ", ref_text=lines[ref].strip())
+    return plan
 
 
 def report(env, A):
@@ -415,11 +527,28 @@ def report(env, A):
         "Symlink aufs Repo" if A["logic_is_link"] else
         "alte Einzeldatei (wird ersetzt, Werte werden übernommen)" if A["legacy_logic"] else "fehlt"))
     (ok if A["settings_exists"] else info)(f"{SETTINGS_NAME}: " + ("vorhanden" if A["settings_exists"] else "fehlt"))
+    try:
+        schema = int(A["meta"].get("schema", ["1"])[0])
+    except ValueError:
+        schema = 1
+    if A["settings_exists"] and schema < SETTINGS_SCHEMA:
+        info("  ältere Einstellungsdatei – neue Optionen (Dock-Wege, Wiederholversuche) mit --reconfigure "
+             "oder durch Speichern in der Web-Oberfläche ergänzen")
     (ok if A["has_inc_logic"] and A["has_inc_settings"] else info)(
         "Includes in printer.cfg: " + ("vollständig" if A["has_inc_logic"] and A["has_inc_settings"] else "unvollständig"))
     (ok if A["nginx_has_include"] else info)("Web-Oberfläche in nginx: " + ("eingebunden" if A["nginx_has_include"] else "nein"))
     (ok if A["navi_has_entry"] else info)("Menüeintrag in Mainsail: " + ("vorhanden" if A["navi_has_entry"] else "nein"))
     (ok if A["um_present"] else info)("Update-Manager: " + ("eingetragen" if A["um_present"] else "nein"))
+
+    g = A["guard"]
+    if not g["found"]:
+        info("PRINT_START: nicht gefunden")
+    elif g["present"]:
+        ok("PRINT_START: PROBE_GUARD vorhanden")
+    else:
+        warn("PRINT_START: PROBE_GUARD fehlt")
+    if A["ks_present"]:
+        (ok if A["ks_menu"] else info)("KlipperScreen-Menü: " + ("eingebunden" if A["ks_menu"] else "nein"))
 
     head("Konflikte")
     if not A["conflicts"] and not A["kamp_adaptive"]:
@@ -504,11 +633,37 @@ def gather(env, A, asker, reconfigure):
     V["probe_speed"] = asker.ask("Probe-Geschwindigkeit mm/s", opt_num(p, "speed", 2.0))
 
     info("")
-    info("Dock (Andocken: von rechts nach links, Lösen: in Y wegfahren)")
+    info("Dock (Düsenposition, wenn die Probe im Dock sitzt)")
     V["dock_x"] = asker.ask("Dock X (Düsenposition beim Andocken)", opt_num(v, "variable_dock_x", 1.0))
     V["dock_y"] = asker.ask("Dock Y", opt_num(v, "variable_dock_y", 119.0))
-    V["approach_dx"] = asker.ask("Anfahrweg rechts vom Dock (mm)", opt_num(v, "variable_approach_dx", 20.0))
-    V["staging_y"] = asker.ask("Y-Bahn vor dem Dock / Löse-Richtung", opt_num(v, "variable_staging_y", 100.0))
+    layout, attach, detach, d1, d2 = current_paths(v)
+    info("")
+    info("Dock-Wege (Wegpunkte relativ zur Dock-Position):")
+    info("  1 = Dock hinten links: von rechts einfahren, zum Lösen nach vorne")
+    info("  2 = Dock hinten rechts: von links einfahren, zum Lösen nach vorne")
+    info("  3 = wie im ZeroClick-README-Beispiel (Center Dock)")
+    info("  4 = eigene Wegpunkte")
+    while True:
+        choice = str(asker.ask("Dock-Layout (1-4)", str(DOCK_LAYOUTS.index(layout) + 1), kind="str")).strip()
+        if choice in ("1", "2", "3", "4"):
+            break
+        print("    1-4")
+    V["dock_layout"] = DOCK_LAYOUTS[int(choice) - 1]
+    if V["dock_layout"] == "custom":
+        while True:
+            try:
+                V["attach_path"] = parse_path(asker.ask("Wegpunkte Andocken (dx,dy; dx,dy; ...)", path_short(attach), kind="str"))
+                V["detach_path"] = parse_path(asker.ask("Wegpunkte Ablegen (dx,dy; dx,dy; ...)", path_short(detach), kind="str"))
+                break
+            except (ValueError, SyntaxError, TypeError, IndexError):
+                print("    " + tr("Ungültige Wegpunkte – Format: dx,dy; dx,dy (mindestens zwei Punkte, einer davon 0,0)"))
+                if not asker.interactive:
+                    raise SystemExit(1)
+    else:
+        d1 = asker.ask("Anfahrweg seitlich vom Dock (mm)", d1)
+        d2 = asker.ask("Y-Abstand der Anfahrbahn / Löseweg (mm)", d2)
+        V["attach_path"], V["detach_path"] = preset_paths(V["dock_layout"], d1, d2)
+    V["retries"] = int(asker.ask("Wiederholversuche beim An-/Ablegen", opt_num(v, "variable_retries", 1.0)))
     V["safe_z"] = asker.ask("Z-Höhe für Dock-Fahrten", opt_num(v, "variable_safe_z", max(14.0, math.ceil(V["z_offset"]) + 5)))
     V["travel_f"] = asker.ask("Verfahrgeschwindigkeit mm/min", opt_num(v, "variable_travel_f", 4000.0))
     V["dock_f"] = asker.ask("Dock-Geschwindigkeit mm/min", opt_num(v, "variable_dock_f", 4000.0))
@@ -580,12 +735,15 @@ def compute(V, A):
     hmz = max(10.0, math.ceil(V["z_offset"] + 4))
     if V["safe_z"] < V["z_offset"] + 3:
         warnings.append(f"Dock-Höhe {fmt(V['safe_z'])} ist knapp über der Probe-Spitze ({fmt(V['z_offset'])}) – Kollisionsgefahr")
-    if V["dock_x"] + V["approach_dx"] > xmax:
-        warnings.append("Anfahrpunkt rechts vom Dock liegt außerhalb des Verfahrbereichs")
-    for nm, val, lo, hi in (("Dock X", V["dock_x"], xmin, xmax), ("Dock Y", V["dock_y"], ymin, ymax),
-                            ("Y-Bahn", V["staging_y"], ymin, ymax)):
+    for nm, val, lo, hi in (("Dock X", V["dock_x"], xmin, xmax), ("Dock Y", V["dock_y"], ymin, ymax)):
         if not lo <= val <= hi:
             warnings.append(f"{nm} {fmt(val)} liegt außerhalb des Verfahrbereichs ({fmt(lo)}..{fmt(hi)})")
+    for kind, path in (("Andocken", V["attach_path"]), ("Ablegen", V["detach_path"])):
+        for px, py in path:
+            x, y = V["dock_x"] + px, V["dock_y"] + py
+            msg = f"Wegpunkt {fmt(px)},{fmt(py)} ({kind}) liegt außerhalb des Verfahrbereichs"
+            if not (xmin <= x <= xmax and ymin <= y <= ymax) and msg not in warnings:
+                warnings.append(msg)
 
     return {"mesh_min": mesh_min, "mesh_max": mesh_max, "safe": (safe_x, safe_y),
             "screws": screws, "hmz": hmz, "warnings": warnings,
@@ -605,8 +763,9 @@ def render_settings(V, R, A):
         date=datetime.date.today().isoformat(),
         mesh_margin=fmt(V["mesh_margin"]),
         screw_meta="\n".join(meta),
-        dock_x=fmt(V["dock_x"]), dock_y=fmt(V["dock_y"]), approach_dx=fmt(V["approach_dx"]),
-        staging_y=fmt(V["staging_y"]), safe_x=fmt(R["safe"][0]), safe_y=fmt(R["safe"][1]),
+        dock_x=fmt(V["dock_x"]), dock_y=fmt(V["dock_y"]), dock_layout=V["dock_layout"],
+        attach_path=path_cfg(V["attach_path"]), detach_path=path_cfg(V["detach_path"]), retries=V["retries"],
+        safe_x=fmt(R["safe"][0]), safe_y=fmt(R["safe"][1]),
         safe_z=fmt(V["safe_z"]), travel_f=fmt(V["travel_f"]), dock_f=fmt(V["dock_f"]),
         verify="True" if V["verify"] else "False",
         pin=V["pin"], x_offset=fmt(V["x_offset"]), y_offset=fmt(V["y_offset"]),
@@ -766,7 +925,16 @@ def add_includes(printer_cfg, A, ops):
 def remove_includes(printer_cfg, ops):
     lines = printer_cfg.read_text(errors="replace").split("\n")
     pat = re.compile(rf"^\[include\s+({re.escape(LOGIC_NAME)}|{re.escape(SETTINGS_NAME)})\s*\]")
-    kept = [l for l in lines if not pat.match(l)]
+    kept, dropped = [], False
+    for l in lines:
+        if pat.match(l):
+            dropped = True
+            continue
+        if dropped and l.strip() == "":  # blank line add_includes put after the include block
+            dropped = False
+            continue
+        dropped = False
+        kept.append(l)
     if len(kept) != len(lines):
         ops.write(printer_cfg, "\n".join(kept))
         ok("Includes aus printer.cfg entfernt")
@@ -923,6 +1091,103 @@ def um_remove(env, ops):
     return changed
 
 
+# ---- PRINT_START guard ------------------------------------------------------------
+def guard_install(env, ops):
+    g = guard_plan(parse_config(env["printer_cfg"]), env["cfg"])  # fresh: includes may have shifted lines
+    if not g["found"] or g["present"] or not g["inside"]:
+        return
+    lines = Path(g["file"]).read_text(errors="replace").split("\n")
+    lines.insert(g["line"] + 1, g["indent"] + GUARD_LINE)
+    ops.write(g["file"], "\n".join(lines))
+    ok(f"PROBE_GUARD in PRINT_START eingefügt ({os.path.basename(g['file'])}:{g['line'] + 2})")
+
+
+def guard_remove(cfg, ops):
+    for f in sorted(set(glob.glob(str(cfg / "**/*.cfg"), recursive=True))):
+        if os.path.islink(f):
+            continue
+        text = Path(f).read_text(errors="replace")
+        if "PROBE_GUARD" not in text:
+            continue
+        lines = text.split("\n")
+        kept = [l for l in lines if not GUARD_RE.match(l)]
+        if len(kept) != len(lines):
+            ops.write(f, "\n".join(kept))
+            ok(f"PROBE_GUARD aus {os.path.basename(f)} entfernt")
+
+
+# ---- KlipperScreen ------------------------------------------------------------------
+def ks_restart(env, ops):
+    if service_state(env, "KlipperScreen") == "active":
+        ops.run_root(["systemctl", "restart", "KlipperScreen"])
+        ok("KlipperScreen neu gestartet")
+    else:
+        info("KlipperScreen bitte neu starten, damit die Änderung wirkt")
+
+
+def ks_install(env, A, ops, lang):
+    cfg, conf = env["cfg"], A["ks_conf"]
+    src = KS_DIR / f"dockprobe_{lang}.conf"
+    link = cfg / KS_NAME
+    if ops.dry:
+        info(c("2", f"[dry-run] Symlink {link} -> {src}"))
+    else:
+        if link.is_symlink() or link.exists():
+            link.unlink()
+        link.symlink_to(src)
+    if conf.exists():
+        text = conf.read_text(errors="replace")
+        if KS_INCLUDE not in text:
+            ops.write(conf, KS_INCLUDE + "\n" + text)
+    else:
+        ops.write(conf, f"{KS_CREATED}\n{KS_INCLUDE}\n")
+    ok("KlipperScreen-Menü eingebunden (Mehr → Probe)")
+    ks_restart(env, ops)
+
+
+def settings_lang(cfg):
+    """language of the Klipper messages from probe_dock_settings.cfg (may not be included yet)"""
+    try:
+        m = re.search(r"^variable_lang\s*[:=]\s*[\"']?(de|en)\b", (cfg / SETTINGS_NAME).read_text(errors="replace"), re.M)
+    except OSError:
+        return None
+    return m.group(1) if m else None
+
+
+def ks_relink(env, ops, lang):
+    """keep the menu language in line with the Klipper messages"""
+    link, src = env["cfg"] / KS_NAME, KS_DIR / f"dockprobe_{lang}.conf"
+    if not link.is_symlink() or os.readlink(link) == str(src):
+        return
+    if ops.dry:
+        info(c("2", f"[dry-run] Symlink {link} -> {src}"))
+        return
+    link.unlink()
+    link.symlink_to(src)
+    ok("KlipperScreen-Menü auf die Sprache der Klipper-Meldungen umgestellt (wirkt nach Neustart von KlipperScreen)")
+
+
+def ks_remove(env, A, ops):
+    cfg, conf = env["cfg"], A["ks_conf"]
+    changed = False
+    if conf.exists():
+        lines = conf.read_text(errors="replace").split("\n")
+        kept = [l for l in lines if l.strip() != KS_INCLUDE]
+        if len(kept) != len(lines):
+            changed = True
+            if all(l.strip() in ("", KS_CREATED) for l in kept):
+                ops.remove(conf)
+            else:
+                ops.write(conf, "\n".join(kept))
+    link = cfg / KS_NAME
+    if link.is_symlink() or link.exists():
+        ops.remove(link)
+        changed = True
+    if changed:
+        ok("KlipperScreen-Menü entfernt")
+        ks_restart(env, ops)
+
+
 # ---- Moonraker-API ----------------------------------------------------------------
 def api(method, path, timeout=5):
     req = urllib.request.Request(MOONRAKER + path, method=method)
@@ -999,6 +1264,8 @@ def do_install(env, A, args, ops, asker):
         info(f"Düse fährt dabei X {fmt(nxl)}..{fmt(nxh)}, Y {fmt(nyl)}..{fmt(nyh)}")
         info(f"Referenz-/Parkposition (zero_reference, Papiertest): {fmt(R['safe'][0])}, {fmt(R['safe'][1])}")
         info(f"horizontal_move_z: {fmt(R['hmz'])}")
+        info(f"Wegpunkte Andocken: {path_short(V['attach_path'])}")
+        info(f"Wegpunkte Ablegen:  {path_short(V['detach_path'])}")
         for s in R["screws"]:
             info(f"Schraube {s['name']}: Düse {fmt(s['x'])}, {fmt(s['y'])}"
                  + ("" if s["dist"] < 0.5 else f"  (Probe {s['dist']:.0f} mm neben der Schraube)"))
@@ -1006,6 +1273,18 @@ def do_install(env, A, args, ops, asker):
             warn(w)
 
     web = not args.no_web
+    g = A["guard"]
+    guard = False
+    if not args.no_guard and g["found"] and not g["present"]:
+        if g["inside"]:
+            info("")
+            info(f"{g['name']}: PROBE_GUARD nach „{g['ref_text']}“ einfügen ({os.path.basename(g['file'])}:{g['line'] + 1})")
+            guard = asker.confirm("PROBE_GUARD in PRINT_START einfügen (Schutz vor Druck mit angedockter Probe)?", True)
+        else:
+            warn("PRINT_START liegt außerhalb des Config-Ordners – PROBE_GUARD bitte manuell einfügen")
+    ks = False
+    if A["ks_present"] and not A["ks_menu"] and not args.no_klipperscreen:
+        ks = args.klipperscreen or asker.confirm("Probe-Menü in KlipperScreen einbinden (Mehr → Probe)?", False)
     head("Geplante Änderungen")
     info("Backup des Config-Ordners nach ~/dockprobe-backups/")
     if A["legacy_logic"]:
@@ -1023,6 +1302,10 @@ def do_install(env, A, args, ops, asker):
     if web:
         info("Web-Oberfläche in nginx einbinden und Menüeintrag in Mainsail anlegen")
     info("Update-Manager in moonraker.conf eintragen (falls per git clone installiert)")
+    if guard:
+        info("PROBE_GUARD in PRINT_START einfügen")
+    if ks:
+        info("KlipperScreen-Menü einbinden und KlipperScreen neu starten")
     if not args.no_restart:
         info("Klipper neu starten")
 
@@ -1071,6 +1354,13 @@ def do_install(env, A, args, ops, asker):
         if nginx_install(env, ops):
             navi_install(env, ops)
     um_changed = um_install(env, ops)
+    if guard:
+        guard_install(env, ops)
+    lang = (V or {}).get("lang") or settings_lang(cfg) or i18n.LANG
+    if ks:
+        ks_install(env, A, ops, lang)
+    elif A["ks_menu"]:
+        ks_relink(env, ops, lang)
 
     if not args.no_restart:
         restart_services(um_changed, ops)
@@ -1103,6 +1393,8 @@ def do_uninstall(env, A, args, ops, asker):
             ok(f"{SETTINGS_NAME} gelöscht")
     if asker.confirm("Vom Installer auskommentierte Sections wiederherstellen?", True):
         uncomment_all(cfg, ops)
+    guard_remove(cfg, ops)
+    ks_remove(env, A, ops)
     nginx_remove(env, ops)
     navi_remove(env, ops)
     um_changed = um_remove(env, ops)
@@ -1123,6 +1415,9 @@ def main():
     ap.add_argument("--config-dir", help="Config-Ordner / config folder (~/printer_data/config)")
     ap.add_argument("--nginx-site", help="nginx-Site von Mainsail / Mainsail nginx site file")
     ap.add_argument("--lang", choices=("de", "en"), help="Sprache der Ausgaben und Meldungen / language")
+    ap.add_argument("--no-guard", action="store_true", help="PROBE_GUARD nicht in PRINT_START einfügen / don't add PROBE_GUARD")
+    ap.add_argument("--klipperscreen", action="store_true", help="KlipperScreen-Menü einbinden / add the KlipperScreen menu")
+    ap.add_argument("--no-klipperscreen", action="store_true", help="kein KlipperScreen-Menü / no KlipperScreen menu")
     args = ap.parse_args()
 
     i18n.LANG = args.lang or i18n.default_lang()

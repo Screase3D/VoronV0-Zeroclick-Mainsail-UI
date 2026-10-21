@@ -27,6 +27,7 @@ probe on a printer that keeps its Z endstop.
 - [Macro reference](#macro-reference)
 - [Settings reference](#settings-reference)
 - [PRINT_START](#print_start)
+- [KlipperScreen](#klipperscreen)
 - [Updating](#updating)
 - [Uninstalling](#uninstalling)
 - [Troubleshooting](#troubleshooting)
@@ -37,7 +38,12 @@ probe on a printer that keeps its Z endstop.
 ## Features
 
 - **Dock macros** – `ATTACH_PROBE` / `DETACH_PROBE` with state tracking and verification through the probe pin.
-  A failed pick-up or drop-off aborts with an error instead of carrying on with the probe in the wrong place.
+  If the pin shows that a pick-up or drop-off failed, the move is repeated once at half speed; if that fails too, the
+  macro aborts with an error instead of carrying on with the probe in the wrong place.
+- **Print guard** – `PROBE_GUARD` in `PRINT_START` reads the probe pin right before printing, docks a probe that is
+  still attached and stops the print if that fails. The installer can add the line for you.
+- **Other dock layouts** – the dock moves are waypoints relative to the dock: presets for a dock at the rear left
+  (default), at the rear right, the ZeroClick README sample, or your own waypoints.
 - **Automatic probe handling** – `BED_MESH_CALIBRATE`, `SCREWS_TILT_CALCULATE` and `PROBE_ACCURACY` fetch the probe
   and put it back on their own.
 - **One-command calibration** – `CALIBRATE_ALL` homes, heat-soaks, checks the bed screws, meshes and docks the probe.
@@ -45,8 +51,11 @@ probe on a printer that keeps its Z endstop.
   `PROBE_CALIBRATE`, which would drive a hanging probe into the bed.
 - **Installer** – analyses your config, calculates mesh bounds and screw points from the probe offsets, resolves
   conflicts (old macros, KAMP adaptive meshing), backs everything up and wires the UI into nginx, Mainsail and Moonraker.
-- **Probe page in Mainsail** – setup checklist, dock test, accuracy chart, live bed view, mesh profiles and a settings
-  editor, rendered with Mainsail's own stylesheet and your theme.
+- **Probe page in Mainsail** – setup checklist, dock test, accuracy chart, live bed view, mesh profiles, a settings
+  editor and a history of all measurements over time, rendered with Mainsail's own stylesheet and your theme.
+- **History** – accuracy, measured z_offset, bed screws, mesh range and Z endstop as trend charts, a comparison of two
+  meshes, dock statistics and CSV export. Runs started from KlipperScreen, macros or `PRINT_START` are included.
+- **KlipperScreen menu (optional)** – the most important commands under *More → Probe*; removed again by the uninstaller.
 - **Updates through Mainsail's update manager** – your settings are never overwritten.
 - **English and German** – installer, web UI and Klipper messages.
 
@@ -56,27 +65,43 @@ probe on a printer that keeps its Z endstop.
 `zero_reference_position` normalises every mesh to 0 at the point where you do the paper test, so the probe's
 `z_offset` cannot shift your first layer.
 
-**Dock sequence** (dock at the rear left, toolhead attaches from the right):
+**Dock sequence** (default layout: dock at the rear left, toolhead enters from the right). *d1* is the approach
+distance beside the dock (default 20 mm), *d2* the Y offset of the approach lane and the release travel (default 19 mm):
 
 | Step | Attach | Detach |
 |---|---|---|
 | 1 | lift to `safe_z`, move to the park point | same |
-| 2 | staging point right of the dock (`dock_x + approach_dx`, `staging_y`) | same |
+| 2 | approach lane: `dock_x + d1`, `dock_y − d2` | same |
 | 3 | move to `dock_y` | same |
 | 4 | move left to `dock_x` – the magnets couple | move left to `dock_x` – the probe sits in the dock |
-| 5 | move back out to the right | move away in Y to `staging_y` – breaks the magnetic coupling |
+| 5 | move back out to the right (`dock_x + d1`) | move forward to `dock_y − d2` – breaks the magnetic coupling |
 | 6 | back to the park point, check the pin | back to the park point, check the pin |
+
+The order of the moves is fixed – only the distances change. Internally every layout is a list of waypoints
+`[dx, dy]` relative to `dock_x`/`dock_y`:
+
+| Layout (`dock_layout`) | Attach waypoints | Detach waypoints |
+|---|---|---|
+| `right-front` – dock at the rear left, enter from the right (default) | `d1,−d2 · d1,0 · 0,0 · d1,0` | `d1,−d2 · d1,0 · 0,0 · 0,−d2` |
+| `left-front` – dock at the rear right, enter from the left | `−d1,−d2 · −d1,0 · 0,0 · −d1,0` | `−d1,−d2 · −d1,0 · 0,0 · 0,−d2` |
+| `zeroclick` – as in the ZeroClick README sample (center dock) | `−d1,−d2 · −d1,0 · 0,0` | `0,0 · −d1,0 · −d1,−d2` |
+| `custom` – your own list | anything, one point must be `0,0` | anything, one point must be `0,0` |
+
+Before and after the waypoints the toolhead goes to the park point at `safe_z`. Every waypoint is checked against
+the travel range by the installer and the Settings panel.
 
 **State tracking:** with a normally closed switch the probe pin reads `TRIGGERED` while the probe is in the dock
 (circuit open) and `open` while it is attached. The macros check this after every move and on Klipper start-up.
-Set `verify: False` if your probe cannot tell the two states apart.
+If the pin shows the wrong state after a move, the whole move is repeated at half dock speed (`retries`, default 1);
+only then does the macro abort. Set `verify: False` if your probe cannot tell the two states apart – then there are
+no checks and no retries.
 
 ## Requirements
 
 - Klipper, Moonraker and Mainsail installed with [KIAUH](https://github.com/dw-0/kiauh) or MainsailOS
   (nginx site called `mainsail`)
 - Python 3 (standard library only) and `sudo` rights for the nginx step
-- A dock at the rear left, reachable by moving left from a staging point; release by moving in Y
+- A dock that fits one of the [layouts](#how-it-works) or can be described with your own waypoints
 - Probe pin configured so that `QUERY_PROBE` reports **TRIGGERED** with the probe **docked** and **open** with the
   probe **on the toolhead** (normally closed switches: usually `^PIN` without `!`)
 - Moonraker must trust the browser (`trusted_clients`), as for Mainsail without login
@@ -100,12 +125,15 @@ Run it as your normal user, not with `sudo` – it asks for `sudo` itself where 
 
 1. Analyses the config: includes, travel range, Z endstop position, probe, conflicting sections and macros,
    KAMP, nginx and Moonraker.
-2. Asks for pin, offsets, dock position, speeds and screw positions – suggestions come from your existing config.
+2. Asks for pin, offsets, dock position and layout, retries, speeds and screw positions – suggestions come from
+   your existing config.
 3. Calculates `mesh_min`/`mesh_max`, the screw probe points, `horizontal_move_z` and the reference point,
    and warns about collisions or unreachable points.
-4. Shows all planned changes and asks before touching anything.
-5. Backs up the config folder (and the nginx site) to `~/dockprobe-backups/`.
-6. Installs, adds the web UI to nginx (`nginx -t` first, reverted on failure) and restarts Klipper.
+4. Offers to add `PROBE_GUARD` to `PRINT_START` (default yes) and, if KlipperScreen is installed, the probe menu
+   (default no).
+5. Shows all planned changes and asks before touching anything.
+6. Backs up the config folder (and the nginx site) to `~/dockprobe-backups/`.
+7. Installs, adds the web UI to nginx (`nginx -t` first, reverted on failure) and restarts Klipper.
 
 **Options**
 
@@ -118,6 +146,8 @@ Run it as your normal user, not with `sudo` – it asks for `sudo` itself where 
 | `--yes`, `-y` | accept all suggestions without asking |
 | `--no-web` | skip the web UI (nginx and Mainsail menu entry) |
 | `--no-restart` | don't restart Klipper |
+| `--no-guard` | don't offer to add `PROBE_GUARD` to `PRINT_START` |
+| `--klipperscreen` / `--no-klipperscreen` | add the KlipperScreen menu without asking / never offer it |
 | `--config-dir PATH` | Klipper config folder (default `~/printer_data/config`) |
 | `--nginx-site PATH` | Mainsail's nginx site file |
 | `--uninstall` | remove everything (same as `./uninstall.sh`) |
@@ -134,6 +164,8 @@ Run it as your normal user, not with `sudo` – it asks for `sudo` itself where 
 | `.theme/navi.json` | menu entry **Probe** (other entries are kept) |
 | Mainsail's nginx site | `include /etc/nginx/snippets/dockprobe.conf;` |
 | `moonraker.conf` | `[update_manager voron0-dockprobe]` |
+| your `PRINT_START` / `START_PRINT` macro (on request) | one line `PROBE_GUARD  # dockprobe: …` after the last probing command, outside any `{% if %}` block |
+| `KlipperScreen.conf` (on request) | `[include dockprobe_klipperscreen.conf]` – a symlink to the menu file in the repo |
 
 An existing single-file `probe_dock.cfg` is renamed to `probe_dock.cfg.old` and its values are offered as suggestions.
 If `z_offset` lives in the `SAVE_CONFIG` block it stays there – a second copy in an included file would make every
@@ -162,21 +194,23 @@ accessed via https.
 
 <table>
 <tr>
-<td width="34%"><img src="docs/bed-view.png" alt="Live bed view with the probe attached"></td>
-<td width="34%"><img src="docs/settings.png" alt="Settings editor"></td>
-<td width="32%"><img src="docs/paper-test.png" alt="Paper test dialog"><br><br><img src="docs/mobile.png" alt="Mobile layout" width="70%"></td>
+<td width="25%"><img src="docs/history.png" alt="History with trend charts and mesh comparison"></td>
+<td width="25%"><img src="docs/bed-view.png" alt="Live bed view with the probe attached"><br><br><img src="docs/paper-test.png" alt="Paper test dialog"></td>
+<td width="25%"><img src="docs/settings.png" alt="Settings editor, dock tab"></td>
+<td width="25%"><img src="docs/mobile.png" alt="Mobile layout"></td>
 </tr>
 </table>
 
 | Panel | What it does |
 |---|---|
 | **Setup** | the calibration steps in the right order; steps tick themselves off after a successful measurement |
-| **Probe** | state, pin, position and offsets; attach/detach; accuracy test with chart (deviation per sample in µm) and rating; z_offset check with **Apply** |
+| **Probe** | state, pin, position, offsets and whether `PROBE_GUARD` is in `PRINT_START`; attach/detach; accuracy test with chart (deviation per sample in µm) and rating; z_offset check with **Apply** |
 | **Dock test** | `DOCK_TEST` with cycles and speed |
 | **Bed & screws** | live view of nozzle and probe (in the dock or on the toolhead), dock, approach path, mesh area and Z0 point; screw results with turn direction and the previous measurement |
 | **Bed Mesh** | heat map of the active mesh; load, save and delete profiles |
+| **History** | trend charts for accuracy, measured z_offset, largest screw deviation, mesh range and Z endstop position (hover or arrow keys for details); counters for dock tests, retries, aborts and print-guard interventions; comparison of two meshes as a difference map; list of all entries; CSV export; time range 30 days / 90 days / 1 year / all |
 | **Calibration** | `CALIBRATE_ALL` with bed temperature, soak time, screws and mesh |
-| **Settings** | offsets, pin, dock, screw positions, mesh and message language. Jog there and click to take over a position. Mesh bounds, probe points and reference point are recalculated live; saving shows a diff, keeps a `.bak` and restarts Klipper |
+| **Settings** | offsets, pin, dock position and layout (presets or own waypoints), retries, screw positions, mesh and message language. Jog there and click to take over a position. Mesh bounds, probe points, reference point and the dock waypoints are recalculated live; saving shows a diff, keeps a `.bak` and restarts Klipper |
 | **Paper test** | opens automatically during `CALIBRATE_Z_ENDSTOP`, like Mainsail's dialog; keyboard: ↑/↓ ±0.05, Shift ±0.01, PgUp/PgDn ±0.1 |
 | **Console** | G-code input and responses |
 
@@ -188,6 +222,11 @@ accessed via https.
 re-initialisation – and **Probe** in Mainsail's menu switches straight back. Browser back/forward work. Turn it off with
 *Fast switching* at the bottom of the sidebar or `?shell=0`.
 
+**History:** the page reads Moonraker's console log (the last 1000 lines) and keeps every measurement in
+Moonraker's database (namespace `dockprobe`), so all browsers see the same history. Measurements from KlipperScreen,
+macros or `PRINT_START` are picked up too, as long as the page is opened before they scroll out of the log. The
+trash button in the panel deletes the history.
+
 **Language:** follows Mainsail or the browser; switch with the **EN/DE** button in the top bar, which also changes
 the language of the Klipper messages.
 
@@ -195,11 +234,12 @@ the language of the Klipper messages.
 
 | Command | Description |
 |---|---|
-| `ATTACH_PROBE [FORCE=1] [F=<mm/min>]` | Pick up the probe. Skipped if already attached unless `FORCE=1`. `F` overrides all XY speeds, e.g. for slow first tests. |
-| `DETACH_PROBE [FORCE=1] [F=<mm/min>]` | Put the probe back into the dock. |
+| `ATTACH_PROBE [FORCE=1] [F=<mm/min>]` | Pick up the probe. Skipped if already attached unless `FORCE=1`. `F` overrides all XY speeds, e.g. for slow first tests. If the pin check fails, the move is repeated at half speed (`retries`) before it aborts. |
+| `DETACH_PROBE [FORCE=1] [F=<mm/min>]` | Put the probe back into the dock – same check and retry. |
+| `PROBE_GUARD` | For `PRINT_START`: reads the probe pin; docks the probe if it is still attached; aborts (and with it the print) if docking fails. Without `verify` it uses the stored state. |
 | `PROBE_STATUS` | Run `QUERY_PROBE` and sync the stored state with the pin. |
 | `DOCK_TEST [CYCLES=3] [F=<mm/min>]` | Attach and detach repeatedly; every move is verified. |
-| `BED_MESH_CALIBRATE [...]` | Klipper's command with automatic attach; detaches only if it attached the probe itself. All parameters (e.g. `ADAPTIVE=1`, `PROFILE=`) are passed through. |
+| `BED_MESH_CALIBRATE [...]` | Klipper's command with automatic attach; detaches only if it attached the probe itself. All parameters (e.g. `ADAPTIVE=1`, `PROFILE=`) are passed through. Prints one line with the mesh range afterwards. |
 | `SCREWS_TILT_CALCULATE [...]` | Same wrapper for the bed screw check. |
 | `PROBE_ACCURACY [...]` | Same wrapper, measured at the reference point. |
 | `MEASURE_PROBE_OFFSET` | Probe at the reference point. The reported z is the correction for `z_offset` (≈ 0 means it fits). |
@@ -216,8 +256,9 @@ Everything you can change lives in `probe_dock_settings.cfg` (or in the **Settin
 | Variable | Meaning | Default |
 |---|---|---|
 | `dock_x`, `dock_y` | nozzle position at which the probe sits in the dock | 1, 119 |
-| `approach_dx` | distance right of the dock for approach and exit (mm) | 20 |
-| `staging_y` | Y lane in front of the dock; also the release direction when detaching | 100 |
+| `dock_layout` | name of the preset the paths were made from: `right-front`, `left-front`, `zeroclick` or `custom` | `right-front` |
+| `attach_path`, `detach_path` | waypoints `[[dx, dy], …]` relative to `dock_x`/`dock_y`, in move order; one of them `[0, 0]` | see [layouts](#how-it-works) |
+| `retries` | extra attempts at half dock speed when the pin check after a dock move fails (0 = abort immediately) | 1 |
 | `safe_x`, `safe_y` | park position = `zero_reference_position` = paper-test point (calculated) | bed centre |
 | `safe_z` | Z height for all dock moves – must clear the probe tip | max(14, `z_offset` + 5) |
 | `travel_f`, `dock_f`, `z_f` | speeds in mm/min | 4000, 4000, 600 |
@@ -236,6 +277,10 @@ Everything you can change lives in `probe_dock_settings.cfg` (or in the **Settin
 
 Screw positions are entered as *the nozzle position when the nozzle is exactly above the screw*.
 
+Settings files from older versions (with `approach_dx`/`staging_y` instead of the paths) keep working unchanged – the
+macros derive the original sequence from them. Saving once in the **Settings** panel or `./install.sh --reconfigure`
+converts the file.
+
 ## PRINT_START
 
 ```ini
@@ -247,13 +292,42 @@ gcode:
   M190 S{target_bed}
   BED_MESH_CLEAR
   BED_MESH_CALIBRATE ADAPTIVE=1   # attaches and detaches the probe itself
-  DETACH_PROBE                    # safety net – does nothing if the probe is docked
+  PROBE_GUARD                     # probe must be in the dock – docks it or stops the print
   M109 S{target_extruder}
   # purge line, e.g. LINE_PURGE from KAMP
 ```
 
 `ADAPTIVE=1` needs `[exclude_object]` in `printer.cfg` and *Label objects* in the slicer. Mesh with a cold nozzle so
 nothing oozes onto the bed.
+
+`PROBE_GUARD` reads the pin itself instead of trusting the stored state, so it also catches a probe that was attached
+by hand or left on the toolhead after an aborted macro. The installer inserts it after the last probing command of
+your `PRINT_START` (or `START_PRINT`) if you agree; the Probe page shows whether it is there. Klipper cannot poll the
+probe pin *during* a print without stalling the motion queue, so the check runs once, right before the print starts.
+
+## KlipperScreen
+
+If KlipperScreen is installed, the installer offers a **Probe** menu under *More*:
+
+| Button | Command |
+|---|---|
+| Attach probe / Dock probe | `ATTACH_PROBE` / `DETACH_PROBE` |
+| Probe status | `PROBE_STATUS` |
+| Dock test | `DOCK_TEST CYCLES=3 F=1500` (asks first) |
+| Probe accuracy | `PROBE_ACCURACY SAMPLES=10` |
+| Bed screws | `SCREWS_TILT_CALCULATE` |
+| Z endstop paper test | `CALIBRATE_Z_ENDSTOP` – KlipperScreen opens its *Z Calibrate* panel for the paper test |
+| Check z_offset | `MEASURE_PROBE_OFFSET` |
+| Bed mesh | `BED_MESH_CALIBRATE` (asks first) |
+| Full calibration | `CALIBRATE_ALL BED=60 SOAK=10` (asks first) |
+| Print guard check | `PROBE_GUARD` |
+
+The menu only appears while the dockprobe macros are loaded. It is fully reversible: the installer adds one line,
+`[include dockprobe_klipperscreen.conf]`, at the top of `KlipperScreen.conf` and a symlink to
+`klipperscreen/dockprobe_<lang>.conf` in the repo – nothing else in your KlipperScreen setup changes. The uninstaller
+removes both (and `KlipperScreen.conf` itself if the installer had to create it). Add it later with
+`./install.sh --klipperscreen`. The menu language follows the Klipper messages; after switching the language, run
+`./install.sh` once more and restart KlipperScreen.
 
 ## Updating
 
@@ -289,15 +363,20 @@ cd ~/VoronV0-Zeroclick-Mainsail-UI
 ./uninstall.sh
 ```
 
-Removes the includes, the symlink, the nginx entry, the menu entry and the update manager section, and – on
-request – restores the sections the installer commented out. `probe_dock_settings.cfg` is kept unless you choose to
-delete it. Backups stay in `~/dockprobe-backups/`; delete them and the repo folder by hand.
+Removes the includes, the symlink, the `PROBE_GUARD` line it added, the KlipperScreen menu, the nginx entry, the menu
+entry and the update manager section, and – on request – restores the sections the installer commented out.
+`probe_dock_settings.cfg` is kept unless you choose to delete it. Backups stay in `~/dockprobe-backups/`; delete them
+and the repo folder by hand. The history stays in Moonraker's database – clear it in the History panel before
+uninstalling if you want it gone.
 
 ## Troubleshooting
 
 | Symptom | Cause and fix |
 |---|---|
 | *"Probe was not picked up – check the dock"* although it is attached | Pin logic inverted. Toggle the `!` in `pin:`. Check with `QUERY_PROBE`: docked → TRIGGERED, attached → open, attached and pressed → TRIGGERED. |
+| *"retrying slowly"* shows up often | The first attempt keeps failing: check the dock position (`dock_x`/`dock_y`) with `DOCK_TEST F=1500`, the magnets and whether the dock moved. The History panel counts the retries. |
+| The print stops with *"Probe is still attached to the toolhead"* | `PROBE_GUARD` could not dock the probe. Check the dock, then `PROBE_STATUS`. |
+| The History panel stays empty | Measurements are read from Moonraker's console log. Run one (e.g. `PROBE_ACCURACY`) with the page open, or open the page more often than every ~1000 console lines. |
 | The probe scrapes or crashes into the bed while meshing | `horizontal_move_z` / `safe_z` below the probe tip. Run `MEASURE_PROBE_OFFSET`, correct `z_offset` and save the settings again – the heights are recalculated. |
 | Poor accuracy (range > 0.025 mm) | Probe too fast – use 2 mm/s. Check the magnets, the mount and the switch for play. |
 | `SAVE_CONFIG` fails with an option defined twice | `z_offset` is in both `probe_dock_settings.cfg` and the `SAVE_CONFIG` block. Keep only one. |

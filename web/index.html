@@ -102,6 +102,35 @@ html.theme--light #bed .bed { fill: rgba(0,0,0,.03); stroke: rgba(0,0,0,.3); }
 .prev div span:first-child { opacity: .7; }
 .chg fieldset { border-color: var(--v-warning-base) !important; }
 
+/* History */
+.seg { display: inline-flex; flex-wrap: nowrap; border: thin solid rgba(255,255,255,.12); border-radius: 4px; overflow: hidden; max-width: 100%; }
+html.theme--light .seg { border-color: rgba(0,0,0,.12); }
+.seg .v-btn { border-radius: 0 !important; box-shadow: none !important; height: 30px !important; min-width: 0 !important; padding: 0 12px !important; }
+.seg .v-btn + .v-btn { border-left: thin solid rgba(255,255,255,.12); }
+html.theme--light .seg .v-btn + .v-btn { border-left-color: rgba(0,0,0,.12); }
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; margin-bottom: 16px; }
+.kpi { position: relative; border-radius: 4px; padding: 8px 12px; }
+.kpi::before { content: ""; position: absolute; inset: 0; background: currentColor; opacity: .05; border-radius: inherit; pointer-events: none; }
+.kpi .l { font-size: 12px; opacity: .7; }
+.kpi .v { font-size: 1.25rem; font-weight: 500; line-height: 1.6; }
+.hcharts { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px 20px; }
+.hchart { position: relative; outline: none; }
+.hchart .hd { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; }
+.hchart .hd span:last-child { font-variant-numeric: tabular-nums; opacity: .7; white-space: nowrap; }
+.hchart svg { width: 100%; height: 112px; display: block; margin-top: 4px; overflow: visible; }
+.hchart svg text { font: 10px Roboto, sans-serif; fill: currentColor; }
+.hchart svg .ax { opacity: .6; }
+.hchart:focus-visible { box-shadow: 0 0 0 2px var(--v-primary-base); border-radius: 4px; }
+.htip { position: absolute; pointer-events: none; z-index: 5; padding: 6px 10px; border-radius: 4px; font-size: 12px; line-height: 1.45; white-space: nowrap;
+  background: #424242; color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35); transform: translate(-50%, -100%); }
+html.theme--light .htip { background: #fff; color: rgba(0,0,0,.87); }
+.htip b { font-size: 13px; font-weight: 600; display: block; }
+.htip span { opacity: .75; display: block; }
+.hlist td { font-size: 13px !important; }
+.hlist td { height: auto !important; padding-top: 6px !important; padding-bottom: 6px !important; }
+.hlist td:first-child { white-space: nowrap; }
+.hlist td .small { font-variant-numeric: tabular-nums; }
+
 .mp-z { display: flex; align-items: center; justify-content: center; gap: 4px; }
 .kbd { display: inline-block; padding: 0 5px; border: 1px solid currentColor; border-radius: 3px; font-size: 11px; opacity: .7; }
 
@@ -155,7 +184,9 @@ body.no-mainsail .v-btn { background: #333; color: #fff; border: 0; border-radiu
                   <tr><td>Probe-Schalter</td><td id="s-pin">–</td></tr>
                   <tr><td>Position</td><td id="s-pos">–</td></tr>
                   <tr><td>Offsets x / y / z</td><td id="s-off">–</td></tr>
+                  <tr><td>Druckschutz</td><td id="s-guard">–</td></tr>
                 </table>
+                <div class="small muted mt-2 hide" id="guard-hint"></div>
                 <div class="btn-row mt-4">
                   <x-btn g="G28" act icon="mdiHome">Home</x-btn>
                   <x-btn g="ATTACH_PROBE" act color="primary">Andocken</x-btn>
@@ -186,6 +217,17 @@ body.no-mainsail .v-btn { background: #333; color: #fff; border: 0; border-radiu
                   <x-btn id="dt-run" act color="primary" icon="mdiPlay">Test starten</x-btn>
                 </div>
                 <div id="dt-res" class="mt-3"></div>
+              </div>
+            </x-panel>
+
+            <x-panel p="history" icon="mdiHistory" title="Verlauf">
+              <x-tools>
+                <x-btn variant="icon" id="hist-csv" title="Als CSV exportieren" icon="mdiDownload"></x-btn>
+                <x-btn variant="icon" id="hist-clear" title="Verlauf löschen" icon="mdiDelete"></x-btn>
+              </x-tools>
+              <div class="v-card__text">
+                <div class="seg mb-4" id="hist-range" role="group" aria-label="Zeitraum"></div>
+                <div id="hist-body"></div>
               </div>
             </x-panel>
           </div>
@@ -270,12 +312,22 @@ body.no-mainsail .v-btn { background: #333; color: #fff; border: 0; border-radiu
                   <div class="field-grid">
                     <x-field label="Dock X" k="dock_x" type="number" step="0.1" suffix="mm"></x-field>
                     <x-field label="Dock Y" k="dock_y" type="number" step="0.1" suffix="mm"></x-field>
-                    <x-field label="Anfahrweg rechts" k="approach_dx" type="number" step="1" suffix="mm"></x-field>
-                    <x-field label="Y-Bahn / Lösen" k="staging_y" type="number" step="1" suffix="mm"></x-field>
+                    <x-select label="Dock-Layout" k="dock_layout" style="grid-column:1/-1">
+                      <option value="right-front">Dock hinten links – von rechts einfahren</option>
+                      <option value="left-front">Dock hinten rechts – von links einfahren</option>
+                      <option value="zeroclick">Wie im ZeroClick-README-Beispiel</option>
+                      <option value="custom">Eigene Wegpunkte</option>
+                    </x-select>
+                    <x-field label="Anfahrweg seitlich" k="d1" type="number" step="1" min="1" suffix="mm"></x-field>
+                    <x-field label="Y-Abstand" k="d2" type="number" step="0.5" min="1" suffix="mm"></x-field>
+                    <x-field label="Wegpunkte Andocken" k="attach_txt" type="text" style="grid-column:1/-1"></x-field>
+                    <x-field label="Wegpunkte Ablegen" k="detach_txt" type="text" style="grid-column:1/-1"></x-field>
                     <x-field label="Z für Dock-Fahrten" k="safe_z" type="number" step="0.5" suffix="mm"></x-field>
-                    <x-field label="Verfahren" k="travel_f" type="number" step="100" suffix="mm/min"></x-field>
+                    <x-field label="Fahrt" k="travel_f" type="number" step="100" suffix="mm/min"></x-field>
                     <x-field label="Dock" k="dock_f" type="number" step="100" suffix="mm/min"></x-field>
+                    <x-field label="Wiederholversuche" k="retries" type="number" step="1" min="0" max="5"></x-field>
                   </div>
+                  <div class="small muted mt-3" id="dk-hint"></div>
                   <div class="mt-3"><x-check label="Andock-Status über Probe-Pin prüfen" k="verify"></x-check></div>
                   <div class="btn-row mt-3"><x-btn cls="pos" data-pos="dock" icon="mdiMapMarker">Aktuelle Position als Dock</x-btn></div>
                 </div>
@@ -372,12 +424,12 @@ body.no-mainsail .v-btn { background: #333; color: #fff; border: 0; border-radiu
 
 <script>
 "use strict";
-const ICON = {"mdiAlertCircleOutline":"M11,15H13V17H11V15M11,7H13V13H11V7M12,2C6.47,2 2,6.5 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20Z","mdiAlertOctagonOutline":"M8.27,3L3,8.27V15.73L8.27,21H15.73C17.5,19.24 21,15.73 21,15.73V8.27L15.73,3M9.1,5H14.9L19,9.1V14.9L14.9,19H9.1L5,14.9V9.1M11,15H13V17H11V15M11,7H13V13H11V7","mdiAlertOutline":"M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16","mdiArrowCollapseDown":"M19.92,12.08L12,20L4.08,12.08L5.5,10.67L11,16.17V2H13V16.17L18.5,10.66L19.92,12.08M12,20H2V22H22V20H12Z","mdiArrowExpandUp":"M2,20V22H22V20H13V5.83L18.5,11.33L19.92,9.92L12,2L4.08,9.92L5.5,11.33L11,5.83V20H2Z","mdiChartBellCurve":"M9.96,11.31C10.82,8.1 11.5,6 13,6C14.5,6 15.18,8.1 16.04,11.31C17,14.92 18.1,19 22,19V17C19.8,17 19,14.54 17.97,10.8C17.08,7.46 16.15,4 13,4C9.85,4 8.92,7.46 8.03,10.8C7.03,14.54 6.2,17 4,17V2H2V22H22V20H4V19C7.9,19 9,14.92 9.96,11.31Z","mdiCheckCircle":"M12 2C6.5 2 2 6.5 2 12S6.5 22 12 22 22 17.5 22 12 17.5 2 12 2M10 17L5 12L6.41 10.59L10 14.17L17.59 6.58L19 8L10 17Z","mdiCheckboxBlankOutline":"M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M19,5V19H5V5H19Z","mdiCheckboxMarked":"M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3Z","mdiChevronDown":"M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z","mdiChevronTripleLeft":"M9.42,7.41L4.83,12L9.42,16.59L8,18L2,12L8,6L9.42,7.41M15.42,7.41L10.83,12L15.42,16.59L14,18L8,12L14,6L15.42,7.41M21.42,7.41L16.83,12L21.42,16.59L20,18L14,12L20,6L21.42,7.41Z","mdiChevronTripleRight":"M14.58,16.59L19.17,12L14.58,7.41L16,6L22,12L16,18L14.58,16.59M8.58,16.59L13.17,12L8.58,7.41L10,6L16,12L10,18L8.58,16.59M2.58,16.59L7.17,12L2.58,7.41L4,6L10,12L4,18L2.58,16.59Z","mdiCloseThick":"M20 6.91L17.09 4L12 9.09L6.91 4L4 6.91L9.09 12L4 17.09L6.91 20L12 14.91L17.09 20L20 17.09L14.91 12L20 6.91Z","mdiCog":"M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z","mdiConsoleLine":"M13,19V16H21V19H13M8.5,13L2.47,7H6.71L11.67,11.95C12.25,12.54 12.25,13.5 11.67,14.07L6.74,19H2.5L8.5,13Z","mdiContentSave":"M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z","mdiCrosshairsGps":"M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8M3.05,13H1V11H3.05C3.5,6.83 6.83,3.5 11,3.05V1H13V3.05C17.17,3.5 20.5,6.83 20.95,11H23V13H20.95C20.5,17.17 17.17,20.5 13,20.95V23H11V20.95C6.83,20.5 3.5,17.17 3.05,13M12,5A7,7 0 0,0 5,12A7,7 0 0,0 12,19A7,7 0 0,0 19,12A7,7 0 0,0 12,5Z","mdiDelete":"M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z","mdiFileDocumentMultipleOutline":"M16 0H8C6.9 0 6 .9 6 2V18C6 19.1 6.9 20 8 20H20C21.1 20 22 19.1 22 18V6L16 0M20 18H8V2H15V7H20V18M4 4V22H20V24H4C2.9 24 2 23.1 2 22V4H4M10 10V12H18V10H10M10 14V16H15V14H10Z","mdiFormatListChecks":"M3,5H9V11H3V5M5,7V9H7V7H5M11,7H21V9H11V7M11,15H21V17H11V15M5,20L1.5,16.5L2.91,15.09L5,17.17L9.59,12.59L11,14L5,20Z","mdiGrid":"M10,4V8H14V4H10M16,4V8H20V4H16M16,10V14H20V10H16M16,16V20H20V16H16M14,20V16H10V20H14M8,20V16H4V20H8M8,14V10H4V14H8M8,8V4H4V8H8M10,14H14V10H10V14M4,2H20A2,2 0 0,1 22,4V20A2,2 0 0,1 20,22H4C2.92,22 2,21.1 2,20V4A2,2 0 0,1 4,2Z","mdiHistory":"M13.5,8H12V13L16.28,15.54L17,14.33L13.5,12.25V8M13,3A9,9 0 0,0 4,12H1L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3","mdiHome":"M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z","mdiInformationOutline":"M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z","mdiMapMarker":"M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5M12,2A7,7 0 0,0 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9A7,7 0 0,0 12,2Z","mdiMenu":"M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z","mdiMinusThick":"M20 14H4V10H20","mdiMonitorDashboard":"M21,16V4H3V16H21M21,2A2,2 0 0,1 23,4V16A2,2 0 0,1 21,18H14V20H16V22H8V20H10V18H3C1.89,18 1,17.1 1,16V4C1,2.89 1.89,2 3,2H21M5,6H14V11H5V6M15,6H19V8H15V6M19,9V14H15V9H19M5,12H9V14H5V12M10,12H14V14H10V12Z","mdiPlay":"M8,5.14V19.14L19,12.14L8,5.14Z","mdiPlus":"M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z","mdiPlusThick":"M20 14H14V20H10V14H4V10H10V4H14V10H20V14Z","mdiProgressCheck":"M13,2.03V2.05L13,4.05C17.39,4.59 20.5,8.58 19.96,12.97C19.5,16.61 16.64,19.5 13,19.93V21.93C18.5,21.38 22.5,16.5 21.95,11C21.5,6.25 17.73,2.5 13,2.03M11,2.06C9.05,2.25 7.19,3 5.67,4.26L7.1,5.74C8.22,4.84 9.57,4.26 11,4.06V2.06M4.26,5.67C3,7.19 2.25,9.04 2.05,11H4.05C4.24,9.58 4.8,8.23 5.69,7.1L4.26,5.67M15.5,8.5L10.62,13.38L8.5,11.26L7.44,12.32L10.62,15.5L16.56,9.56L15.5,8.5M2.06,13C2.26,14.96 3.03,16.81 4.27,18.33L5.69,16.9C4.81,15.77 4.24,14.42 4.06,13H2.06M7.1,18.37L5.67,19.74C7.18,21 9.04,21.79 11,22V20C9.58,19.82 8.23,19.25 7.1,18.37Z","mdiReload":"M2 12C2 16.97 6.03 21 11 21C13.39 21 15.68 20.06 17.4 18.4L15.9 16.9C14.63 18.25 12.86 19 11 19C4.76 19 1.64 11.46 6.05 7.05C10.46 2.64 18 5.77 18 12H15L19 16H19.1L23 12H20C20 7.03 15.97 3 11 3C6.03 3 2 7.03 2 12Z","mdiRestart":"M12,4C14.1,4 16.1,4.8 17.6,6.3C20.7,9.4 20.7,14.5 17.6,17.6C15.8,19.5 13.3,20.2 10.9,19.9L11.4,17.9C13.1,18.1 14.9,17.5 16.2,16.2C18.5,13.9 18.5,10.1 16.2,7.7C15.1,6.6 13.5,6 12,6V10.6L7,5.6L12,0.6V4M6.3,17.6C3.7,15 3.3,11 5.1,7.9L6.6,9.4C5.5,11.6 5.9,14.4 7.8,16.2C8.3,16.7 8.9,17.1 9.6,17.4L9,19.4C8,19 7.1,18.4 6.3,17.6Z","mdiScrewdriver":"M18,1.83C17.5,1.83 17,2 16.59,2.41C13.72,5.28 8,11 8,11L9.5,12.5L6,16H4L2,20L4,22L8,20V18L11.5,14.5L13,16C13,16 18.72,10.28 21.59,7.41C22.21,6.5 22.37,5.37 21.59,4.59L19.41,2.41C19,2 18.5,1.83 18,1.83M18,4L20,6L13,13L11,11L18,4Z","mdiSend":"M2,21L23,12L2,3V10L17,12L2,14V21Z","mdiSwapHorizontal":"M21,9L17,5V8H10V10H17V13M7,11L3,15L7,19V16H14V14H7V11Z","mdiTimelapse":"M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M16.24,7.76C15.07,6.58 13.53,6 12,6V12L7.76,16.24C10.1,18.58 13.9,18.58 16.24,16.24C18.59,13.9 18.59,10.1 16.24,7.76Z","mdiTranslate":"M12.87,15.07L10.33,12.56L10.36,12.53C12.1,10.59 13.34,8.36 14.07,6H17V4H10V2H8V4H1V6H12.17C11.5,7.92 10.44,9.75 9,11.35C8.07,10.32 7.3,9.19 6.69,8H4.69C5.42,9.63 6.42,11.17 7.67,12.56L2.58,17.58L4,19L9,14L12.11,17.11L12.87,15.07M18.5,10H16.5L12,22H14L15.12,19H19.87L21,22H23L18.5,10M15.88,17L17.5,12.67L19.12,17H15.88Z","mdiTune":"M3,17V19H9V17H3M3,5V7H13V5H3M13,21V19H21V17H13V15H11V21H13M7,9V11H3V13H7V15H9V9H7M21,13V11H11V13H21M15,9H17V7H21V5H17V3H15V9Z","mdiUpdate":"M21,10.12H14.22L16.96,7.3C14.23,4.6 9.81,4.5 7.08,7.2C4.35,9.91 4.35,14.28 7.08,17C9.81,19.7 14.23,19.7 16.96,17C18.32,15.65 19,14.08 19,12.1H21C21,14.08 20.12,16.65 18.36,18.39C14.85,21.87 9.15,21.87 5.64,18.39C2.14,14.92 2.11,9.28 5.62,5.81C9.13,2.34 14.76,2.34 18.27,5.81L21,3V10.12M12.5,8V12.25L16,14.33L15.28,15.54L11,13V8H12.5Z","mdiVideo3d":"M5,7H9A2,2 0 0,1 11,9V15A2,2 0 0,1 9,17H5V15H9V13H6V11H9V9H5V7M13,7H16A3,3 0 0,1 19,10V14A3,3 0 0,1 16,17H13V7M16,15A1,1 0 0,0 17,14V10A1,1 0 0,0 16,9H15V15H16Z","mdiWebcam":"M12,2A7,7 0 0,1 19,9A7,7 0 0,1 12,16A7,7 0 0,1 5,9A7,7 0 0,1 12,2M12,4A5,5 0 0,0 7,9A5,5 0 0,0 12,14A5,5 0 0,0 17,9A5,5 0 0,0 12,4M12,6A3,3 0 0,1 15,9A3,3 0 0,1 12,12A3,3 0 0,1 9,9A3,3 0 0,1 12,6M6,22A2,2 0 0,1 4,20C4,19.62 4.1,19.27 4.29,18.97L6.11,15.81C7.69,17.17 9.75,18 12,18C14.25,18 16.31,17.17 17.89,15.81L19.71,18.97C19.9,19.27 20,19.62 20,20A2,2 0 0,1 18,22H6Z","mdiWrench":"M22.7,19L13.6,9.9C14.5,7.6 14,4.9 12.1,3C10.1,1 7.1,0.6 4.7,1.7L9,6L6,9L1.6,4.7C0.4,7.1 0.9,10.1 2.9,12.1C4.8,14 7.5,14.5 9.8,13.6L18.9,22.7C19.3,23.1 19.9,23.1 20.3,22.7L22.6,20.4C23.1,20 23.1,19.3 22.7,19Z"};
+const ICON = {"mdiAlertCircleOutline":"M11,15H13V17H11V15M11,7H13V13H11V7M12,2C6.47,2 2,6.5 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20Z","mdiAlertOctagonOutline":"M8.27,3L3,8.27V15.73L8.27,21H15.73C17.5,19.24 21,15.73 21,15.73V8.27L15.73,3M9.1,5H14.9L19,9.1V14.9L14.9,19H9.1L5,14.9V9.1M11,15H13V17H11V15M11,7H13V13H11V7","mdiAlertOutline":"M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16","mdiArrowCollapseDown":"M19.92,12.08L12,20L4.08,12.08L5.5,10.67L11,16.17V2H13V16.17L18.5,10.66L19.92,12.08M12,20H2V22H22V20H12Z","mdiArrowExpandUp":"M2,20V22H22V20H13V5.83L18.5,11.33L19.92,9.92L12,2L4.08,9.92L5.5,11.33L11,5.83V20H2Z","mdiChartBellCurve":"M9.96,11.31C10.82,8.1 11.5,6 13,6C14.5,6 15.18,8.1 16.04,11.31C17,14.92 18.1,19 22,19V17C19.8,17 19,14.54 17.97,10.8C17.08,7.46 16.15,4 13,4C9.85,4 8.92,7.46 8.03,10.8C7.03,14.54 6.2,17 4,17V2H2V22H22V20H4V19C7.9,19 9,14.92 9.96,11.31Z","mdiCheckCircle":"M12 2C6.5 2 2 6.5 2 12S6.5 22 12 22 22 17.5 22 12 17.5 2 12 2M10 17L5 12L6.41 10.59L10 14.17L17.59 6.58L19 8L10 17Z","mdiCheckboxBlankOutline":"M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M19,5V19H5V5H19Z","mdiCheckboxMarked":"M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3Z","mdiChevronDown":"M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z","mdiChevronTripleLeft":"M9.42,7.41L4.83,12L9.42,16.59L8,18L2,12L8,6L9.42,7.41M15.42,7.41L10.83,12L15.42,16.59L14,18L8,12L14,6L15.42,7.41M21.42,7.41L16.83,12L21.42,16.59L20,18L14,12L20,6L21.42,7.41Z","mdiChevronTripleRight":"M14.58,16.59L19.17,12L14.58,7.41L16,6L22,12L16,18L14.58,16.59M8.58,16.59L13.17,12L8.58,7.41L10,6L16,12L10,18L8.58,16.59M2.58,16.59L7.17,12L2.58,7.41L4,6L10,12L4,18L2.58,16.59Z","mdiCloseThick":"M20 6.91L17.09 4L12 9.09L6.91 4L4 6.91L9.09 12L4 17.09L6.91 20L12 14.91L17.09 20L20 17.09L14.91 12L20 6.91Z","mdiCog":"M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z","mdiConsoleLine":"M13,19V16H21V19H13M8.5,13L2.47,7H6.71L11.67,11.95C12.25,12.54 12.25,13.5 11.67,14.07L6.74,19H2.5L8.5,13Z","mdiContentSave":"M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z","mdiCrosshairsGps":"M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8M3.05,13H1V11H3.05C3.5,6.83 6.83,3.5 11,3.05V1H13V3.05C17.17,3.5 20.5,6.83 20.95,11H23V13H20.95C20.5,17.17 17.17,20.5 13,20.95V23H11V20.95C6.83,20.5 3.5,17.17 3.05,13M12,5A7,7 0 0,0 5,12A7,7 0 0,0 12,19A7,7 0 0,0 19,12A7,7 0 0,0 12,5Z","mdiDelete":"M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z","mdiDownload":"M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z","mdiFileDocumentMultipleOutline":"M16 0H8C6.9 0 6 .9 6 2V18C6 19.1 6.9 20 8 20H20C21.1 20 22 19.1 22 18V6L16 0M20 18H8V2H15V7H20V18M4 4V22H20V24H4C2.9 24 2 23.1 2 22V4H4M10 10V12H18V10H10M10 14V16H15V14H10Z","mdiFormatListChecks":"M3,5H9V11H3V5M5,7V9H7V7H5M11,7H21V9H11V7M11,15H21V17H11V15M5,20L1.5,16.5L2.91,15.09L5,17.17L9.59,12.59L11,14L5,20Z","mdiGrid":"M10,4V8H14V4H10M16,4V8H20V4H16M16,10V14H20V10H16M16,16V20H20V16H16M14,20V16H10V20H14M8,20V16H4V20H8M8,14V10H4V14H8M8,8V4H4V8H8M10,14H14V10H10V14M4,2H20A2,2 0 0,1 22,4V20A2,2 0 0,1 20,22H4C2.92,22 2,21.1 2,20V4A2,2 0 0,1 4,2Z","mdiHistory":"M13.5,8H12V13L16.28,15.54L17,14.33L13.5,12.25V8M13,3A9,9 0 0,0 4,12H1L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3","mdiHome":"M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z","mdiInformationOutline":"M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z","mdiMapMarker":"M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5M12,2A7,7 0 0,0 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9A7,7 0 0,0 12,2Z","mdiMenu":"M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z","mdiMinusThick":"M20 14H4V10H20","mdiMonitorDashboard":"M21,16V4H3V16H21M21,2A2,2 0 0,1 23,4V16A2,2 0 0,1 21,18H14V20H16V22H8V20H10V18H3C1.89,18 1,17.1 1,16V4C1,2.89 1.89,2 3,2H21M5,6H14V11H5V6M15,6H19V8H15V6M19,9V14H15V9H19M5,12H9V14H5V12M10,12H14V14H10V12Z","mdiPlay":"M8,5.14V19.14L19,12.14L8,5.14Z","mdiPlus":"M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z","mdiPlusThick":"M20 14H14V20H10V14H4V10H10V4H14V10H20V14Z","mdiProgressCheck":"M13,2.03V2.05L13,4.05C17.39,4.59 20.5,8.58 19.96,12.97C19.5,16.61 16.64,19.5 13,19.93V21.93C18.5,21.38 22.5,16.5 21.95,11C21.5,6.25 17.73,2.5 13,2.03M11,2.06C9.05,2.25 7.19,3 5.67,4.26L7.1,5.74C8.22,4.84 9.57,4.26 11,4.06V2.06M4.26,5.67C3,7.19 2.25,9.04 2.05,11H4.05C4.24,9.58 4.8,8.23 5.69,7.1L4.26,5.67M15.5,8.5L10.62,13.38L8.5,11.26L7.44,12.32L10.62,15.5L16.56,9.56L15.5,8.5M2.06,13C2.26,14.96 3.03,16.81 4.27,18.33L5.69,16.9C4.81,15.77 4.24,14.42 4.06,13H2.06M7.1,18.37L5.67,19.74C7.18,21 9.04,21.79 11,22V20C9.58,19.82 8.23,19.25 7.1,18.37Z","mdiReload":"M2 12C2 16.97 6.03 21 11 21C13.39 21 15.68 20.06 17.4 18.4L15.9 16.9C14.63 18.25 12.86 19 11 19C4.76 19 1.64 11.46 6.05 7.05C10.46 2.64 18 5.77 18 12H15L19 16H19.1L23 12H20C20 7.03 15.97 3 11 3C6.03 3 2 7.03 2 12Z","mdiRestart":"M12,4C14.1,4 16.1,4.8 17.6,6.3C20.7,9.4 20.7,14.5 17.6,17.6C15.8,19.5 13.3,20.2 10.9,19.9L11.4,17.9C13.1,18.1 14.9,17.5 16.2,16.2C18.5,13.9 18.5,10.1 16.2,7.7C15.1,6.6 13.5,6 12,6V10.6L7,5.6L12,0.6V4M6.3,17.6C3.7,15 3.3,11 5.1,7.9L6.6,9.4C5.5,11.6 5.9,14.4 7.8,16.2C8.3,16.7 8.9,17.1 9.6,17.4L9,19.4C8,19 7.1,18.4 6.3,17.6Z","mdiScrewdriver":"M18,1.83C17.5,1.83 17,2 16.59,2.41C13.72,5.28 8,11 8,11L9.5,12.5L6,16H4L2,20L4,22L8,20V18L11.5,14.5L13,16C13,16 18.72,10.28 21.59,7.41C22.21,6.5 22.37,5.37 21.59,4.59L19.41,2.41C19,2 18.5,1.83 18,1.83M18,4L20,6L13,13L11,11L18,4Z","mdiSend":"M2,21L23,12L2,3V10L17,12L2,14V21Z","mdiSwapHorizontal":"M21,9L17,5V8H10V10H17V13M7,11L3,15L7,19V16H14V14H7V11Z","mdiTimelapse":"M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M16.24,7.76C15.07,6.58 13.53,6 12,6V12L7.76,16.24C10.1,18.58 13.9,18.58 16.24,16.24C18.59,13.9 18.59,10.1 16.24,7.76Z","mdiTranslate":"M12.87,15.07L10.33,12.56L10.36,12.53C12.1,10.59 13.34,8.36 14.07,6H17V4H10V2H8V4H1V6H12.17C11.5,7.92 10.44,9.75 9,11.35C8.07,10.32 7.3,9.19 6.69,8H4.69C5.42,9.63 6.42,11.17 7.67,12.56L2.58,17.58L4,19L9,14L12.11,17.11L12.87,15.07M18.5,10H16.5L12,22H14L15.12,19H19.87L21,22H23L18.5,10M15.88,17L17.5,12.67L19.12,17H15.88Z","mdiTune":"M3,17V19H9V17H3M3,5V7H13V5H3M13,21V19H21V17H13V15H11V21H13M7,9V11H3V13H7V15H9V9H7M21,13V11H11V13H21M15,9H17V7H21V5H17V3H15V9Z","mdiUpdate":"M21,10.12H14.22L16.96,7.3C14.23,4.6 9.81,4.5 7.08,7.2C4.35,9.91 4.35,14.28 7.08,17C9.81,19.7 14.23,19.7 16.96,17C18.32,15.65 19,14.08 19,12.1H21C21,14.08 20.12,16.65 18.36,18.39C14.85,21.87 9.15,21.87 5.64,18.39C2.14,14.92 2.11,9.28 5.62,5.81C9.13,2.34 14.76,2.34 18.27,5.81L21,3V10.12M12.5,8V12.25L16,14.33L15.28,15.54L11,13V8H12.5Z","mdiVideo3d":"M5,7H9A2,2 0 0,1 11,9V15A2,2 0 0,1 9,17H5V15H9V13H6V11H9V9H5V7M13,7H16A3,3 0 0,1 19,10V14A3,3 0 0,1 16,17H13V7M16,15A1,1 0 0,0 17,14V10A1,1 0 0,0 16,9H15V15H16Z","mdiWebcam":"M12,2A7,7 0 0,1 19,9A7,7 0 0,1 12,16A7,7 0 0,1 5,9A7,7 0 0,1 12,2M12,4A5,5 0 0,0 7,9A5,5 0 0,0 12,14A5,5 0 0,0 17,9A5,5 0 0,0 12,4M12,6A3,3 0 0,1 15,9A3,3 0 0,1 12,12A3,3 0 0,1 9,9A3,3 0 0,1 12,6M6,22A2,2 0 0,1 4,20C4,19.62 4.1,19.27 4.29,18.97L6.11,15.81C7.69,17.17 9.75,18 12,18C14.25,18 16.31,17.17 17.89,15.81L19.71,18.97C19.9,19.27 20,19.62 20,20A2,2 0 0,1 18,22H6Z","mdiWrench":"M22.7,19L13.6,9.9C14.5,7.6 14,4.9 12.1,3C10.1,1 7.1,0.6 4.7,1.7L9,6L6,9L1.6,4.7C0.4,7.1 0.9,10.1 2.9,12.1C4.8,14 7.5,14.5 9.8,13.6L18.9,22.7C19.3,23.1 19.9,23.1 20.3,22.7L22.6,20.4C23.1,20 23.1,19.3 22.7,19Z"};
 const VERSION_KEY = "voron0-dockprobe";       // name of the update_manager entry
 const SETTINGS = "probe_dock_settings.cfg";
 const BASE = location.pathname.replace(/[^/]*$/, "") || "/probe/";   // /probe/ or /server/dockprobe/
 const SELF_RE = /^\/(probe|server\/dockprobe)\/?$/;
-const SCHEMA = 2;                              // version of the settings file format
+const SCHEMA = 3;                              // version of the settings file format
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const store = {
@@ -462,7 +514,7 @@ const T_EN = {
   "z_offset steht in probe_dock_settings.cfg.": "z_offset is stored in probe_dock_settings.cfg.",
   "z_offset steht im SAVE_CONFIG-Block von printer.cfg und wird dort geändert.": "z_offset is stored in the SAVE_CONFIG block of printer.cfg and is changed there.",
   "Kein z_offset gefunden.": "No z_offset found.",
-  "Dock X": "Dock X", "Dock Y": "Dock Y", "Anfahrweg rechts": "Approach (right)", "Y-Bahn / Lösen": "Y lane / release",
+  "Dock X": "Dock X", "Dock Y": "Dock Y",
   "Z für Dock-Fahrten": "Z for dock moves", "Verfahren": "Jog", "Andock-Status über Probe-Pin prüfen": "Verify dock state via probe pin",
   "Aktuelle Position als Dock": "Use current position as dock",
   "Düsenposition, wenn die Düse genau über der Schraube steht. Unten hinfahren und übernehmen.":
@@ -477,13 +529,12 @@ const T_EN = {
   "Mesh-Bereich ist leer – Offsets oder Randabstand prüfen.": "Mesh area is empty – check offsets or edge margin.",
   "Schraube „{n}“: Probe misst {d} mm neben der Schraube": "Screw “{n}”: probe measures {d} mm away from the screw",
   "Dock-Höhe {a} liegt knapp über der Probe-Spitze ({b}) – Kollisionsgefahr": "Dock height {a} is barely above the probe tip ({b}) – risk of collision",
-  "Anfahrpunkt rechts vom Dock liegt außerhalb des Verfahrbereichs": "Approach point right of the dock is outside the travel range",
-  "Y-Bahn": "Y lane", "{n} {v} liegt außerhalb des Verfahrbereichs ({a}…{b})": "{n} {v} is outside the travel range ({a}…{b})",
+  "{n} {v} liegt außerhalb des Verfahrbereichs ({a}…{b})": "{n} {v} is outside the travel range ({a}…{b})",
   "Probe-Pin sieht ungültig aus": "Probe pin looks invalid", "Mindestens drei Schrauben nötig.": "At least three screws required.",
   "Probe direkt über der Schraube": "probe directly above the screw", "Probe {d} mm neben der Schraube": "probe {d} mm away from the screw",
   "Section [{s}] fehlt in {f}": "Section [{s}] missing in {f}", "z_offset im SAVE_CONFIG-Block nicht gefunden": "z_offset not found in the SAVE_CONFIG block",
   "{f} nicht lesbar (HTTP {s})": "{f} could not be read (HTTP {s})", "{f} konnte nicht gespeichert werden (HTTP {s})": "{f} could not be saved (HTTP {s})",
-  "Probe-Geschwindigkeit": "Probe speed", "Z Dock-Fahrten": "Z dock moves", "Dock-Geschwindigkeit": "Dock speed", "Status prüfen": "Verify state",
+  "Probe-Geschwindigkeit": "Probe speed", "Fahrt": "Travel", "Verfahrgeschwindigkeit": "Travel speed", "Z Dock-Fahrten": "Z dock moves", "Dock-Geschwindigkeit": "Dock speed", "Status prüfen": "Verify state",
   "ja": "yes", "nein": "no", "Deutsch": "Deutsch", "English": "English",
   "Während eines Drucks gesperrt.": "Locked while printing.", "Erst speichern": "Save first",
   "Es gibt ungespeicherte Kalibrierwerte (SAVE_CONFIG ausstehend). Bitte zuerst Save Config ausführen – ein Neustart würde sie verwerfen.":
@@ -497,6 +548,55 @@ const T_EN = {
   "Position übernommen: X {x}  Y {y}": "Position applied: X {x}  Y {y}", "Neustart": "Restart",
   "Klipper per FIRMWARE_RESTART neu starten?": "Restart Klipper via FIRMWARE_RESTART?",
   "Sprache der Klipper-Meldungen auf {l} gesetzt.": "Klipper message language set to {l}.",
+  // Dock paths, retries, print guard
+  "Druckschutz": "Print guard", "Dock-Layout": "Dock layout", "Wiederholversuche": "Retries",
+  "Dock hinten links – von rechts einfahren": "Dock at the rear left – enter from the right",
+  "Dock hinten rechts – von links einfahren": "Dock at the rear right – enter from the left",
+  "Wie im ZeroClick-README-Beispiel": "As in the ZeroClick README sample", "Eigene Wegpunkte": "Custom waypoints",
+  "Anfahrweg seitlich": "Approach distance", "Y-Abstand": "Y offset",
+  "Wegpunkte Andocken": "Attach waypoints", "Wegpunkte Ablegen": "Detach waypoints",
+  "Wegpunkte dx,dy relativ zur Dock-Position, getrennt mit „;“, in Fahrreihenfolge. Ein Punkt muss 0,0 sein (Düse im Dock). Vorher und nachher fährt der Toolhead zur Parkposition.":
+    "Waypoints dx,dy relative to the dock position, separated by “;”, in move order. One point must be 0,0 (nozzle in the dock). Before and after, the toolhead moves to the park position.",
+  "Anfahrweg: seitlicher Abstand der Einfahrt ins Dock. Y-Abstand: Anfahrbahn vor dem Dock und Weg zum Lösen. Die Reihenfolge der Fahrten bleibt fest – Vorschau unten.":
+    "Approach distance: sideways distance of the entry into the dock. Y offset: approach lane in front of the dock and release travel. The move order is fixed – preview below.",
+  "Ungültige Wegpunkte – Format: dx,dy; dx,dy (mindestens zwei Punkte, einer davon 0,0)":
+    "Invalid waypoints – format: dx,dy; dx,dy (at least two points, one of them 0,0)",
+  "Anfahrweg und Y-Abstand müssen größer als 0 sein.": "Approach distance and Y distance must be greater than 0.",
+  "Wegpunkt {p} ({k}) liegt außerhalb des Verfahrbereichs": "Waypoint {p} ({k}) is outside the travel range",
+  "Andock-Wege: Wegpunkte [dx, dy] relativ zu dock_x/dock_y (Vorlage: dock_layout)": "dock paths: waypoints [dx, dy] relative to dock_x/dock_y (preset: dock_layout)",
+  "retries: Wiederholversuche, wenn die Pin-Prüfung nach dem Andocken/Ablegen fehlschlägt": "retries: extra attempts when the pin check after attaching/detaching fails",
+  "kein {m}-Makro": "no {m} macro", "aktiv in {m}": "active in {m}", "nicht in {m}": "not in {m}",
+  "PROBE_GUARD in {m} prüft vor jedem Druck, dass die Probe im Dock ist, und legt sie notfalls ab. ./install.sh fügt die Zeile auf Wunsch ein.":
+    "PROBE_GUARD in {m} checks before every print that the probe is docked and docks it if needed. ./install.sh adds the line on request.",
+  "Andocken nicht erkannt – neuer Versuch mit halber Geschwindigkeit": "Attach not detected – retrying at half speed",
+  "Ablegen nicht erkannt – neuer Versuch mit halber Geschwindigkeit": "Detach not detected – retrying at half speed",
+  "Druckschutz: Probe hing noch am Toolhead – wird abgelegt": "Print guard: probe was still attached – docking it",
+  // History
+  "Als CSV exportieren": "Export as CSV", "Verlauf löschen": "Clear history", "Zeitraum": "Time range",
+  "Verlauf: {m}": "History: {m}", "Alle Einträge des Verlaufs löschen? Das betrifft alle Browser.": "Delete all history entries? This affects all browsers.",
+  "Genauigkeit – Spanne": "Accuracy – range", "Auslösehöhe (gemessener z_offset)": "Trigger height (measured z_offset)",
+  "Bettschrauben – größte Abweichung": "Bed screws – largest deviation", "Bed Mesh – Spanne": "Bed mesh – range",
+  "Z-Endstop (position_endstop)": "Z endstop (position_endstop)",
+  "Std.-Abw. {sd} µm": "std. dev. {sd} µm", "{n} Messungen": "{n} samples", "eingestellt war {z} mm": "configured: {z} mm",
+  "stärkste Korrektur {a}": "largest correction {a}", "Profil {p}": "profile {p}",
+  "z_offset gemessen": "z_offset measured", "Z-Endstop": "Z endstop", "Wiederholversuch": "Retry", "Dock-Fehler": "Dock error",
+  "Spanne {r} · σ {sd} mm": "range {r} · σ {sd} mm", "{n} mm (eingestellt {z})": "{n} mm (configured {z})",
+  "max. {m} mm": "max. {m} mm", "Spanne {r} mm": "range {r} mm", "bestanden ({n} Zyklen)": "passed ({n} cycles)",
+  "Andocken wiederholt": "attach retried", "Ablegen wiederholt": "detach retried", "Probe nicht aufgenommen": "probe not picked up",
+  "Probe nicht abgelegt": "probe not released", "Probe vor dem Druck abgelegt": "probe docked before printing",
+  "30 Tage": "30 days", "90 Tage": "90 days", "1 Jahr": "1 year", "Alles": "All",
+  "Messungen werden automatisch aus der Konsole von Moonraker übernommen – auch von KlipperScreen, Makros oder PRINT_START. Moonraker hält die letzten 1000 Konsolenzeilen; dazwischen einmal diese Seite öffnen.":
+    "Measurements are taken from Moonraker's console automatically – also from KlipperScreen, macros or PRINT_START. Moonraker keeps the last 1000 console lines; open this page once in a while.",
+  "Keine Einträge in diesem Zeitraum.": "No entries in this time range.",
+  "Noch keine Einträge. Genauigkeit, z_offset, Bettschrauben, Mesh, Z-Endstop und Dock-Tests werden hier über die Zeit dargestellt.":
+    "No entries yet. Accuracy, z_offset, bed screws, mesh, Z endstop and dock tests are shown here over time.",
+  "Dock-Tests bestanden": "Dock tests passed", "Abbrüche": "Aborts", "Druckschutz griff ein": "Print guard stepped in",
+  "Einträge": "Entries", "Weniger anzeigen": "Show less", "Alle anzeigen ({n})": "Show all ({n})",
+  "{n} Werte": "{n} values", "zuletzt {v}": "latest {v}", "Grenze": "Limit",
+  "Mesh-Vergleich ab zwei gespeicherten Messungen.": "Mesh comparison needs two stored meshes.", "Mesh-Vergleich": "Mesh comparison",
+  "Vorher (A)": "Before (A)", "Nachher (B)": "After (B)",
+  "Unterschiedliche Mesh-Größe oder Fläche (z. B. adaptives Mesh) – nicht vergleichbar.": "Different mesh size or area (e.g. adaptive mesh) – not comparable.",
+  "Änderung B − A: <b>{lo}</b> bis <b>{hi}</b> mm · hinten oben": "Change B − A: <b>{lo}</b> to <b>{hi}</b> mm · rear on top",
   // Paper test
   "Papiertest": "Paper test",
   // Console
@@ -521,8 +621,8 @@ function translateStatic(root = document.body) {
     const raw = n.nodeValue, key = raw.trim();
     if (key && T_EN[key] !== undefined) n.nodeValue = raw.replace(key, T_EN[key]);
   }
-  root.querySelectorAll("[title], [placeholder]").forEach((el) => {
-    for (const a of ["title", "placeholder"]) {
+  root.querySelectorAll("[title], [placeholder], [aria-label]").forEach((el) => {
+    for (const a of ["title", "placeholder", "aria-label"]) {
       const v = el.getAttribute(a);
       if (v && T_EN[v] !== undefined) el.setAttribute(a, T_EN[v]);
     }
@@ -894,6 +994,7 @@ async function subscribe() {
   await buildNav(avail);
   await loadSettings();
   render();
+  if (!HIST.loaded) histLoad(); else histSync();
 }
 
 function setKlippy(st) { klippy = st; render(); }
@@ -959,8 +1060,13 @@ function onResponse(raw) {
   if (m) $("dt-res").innerHTML = alertHTML("info", "mdiProgressCheck", esc(t("Zyklus {i}/{n} ok", { i: m[1], n: m[2] })));
   m = line.match(/(?:Dock-Test bestanden|Dock test passed): (\d+)/);
   if (m) { $("dt-res").innerHTML = alertHTML("success", "mdiCheckCircle", esc(t("Dock-Test bestanden ({n} Zyklen).", { n: m[1] }))); setStep("dock", true); }
+  if (/^(?:Probe not picked up|Probe nicht aufgenommen) - /.test(line)) snack(t("Andocken nicht erkannt – neuer Versuch mit halber Geschwindigkeit"));
+  if (/^(?:Probe not released|Probe nicht abgelegt) - /.test(line)) snack(t("Ablegen nicht erkannt – neuer Versuch mit halber Geschwindigkeit"));
+  if (/^PROBE_GUARD: (?:probe is still attached|Probe hängt noch)/.test(line)) snack(t("Druckschutz: Probe hing noch am Toolhead – wird abgelegt"));
+  if (/probe accuracy results|^(?:New z_offset|Neuer z_offset) =|^(?:Mesh range|Mesh-Spanne) |position_endstop:|Dock test passed|Dock-Test bestanden|retrying slowly|neuer Versuch|check the dock|Dock pruefen|^PROBE_GUARD:| : x=-?[\d.]+, y=/.test(line)) histSoon();
 }
 function onError(msg) {
+  histSoon();
   if (DT_RUNNING) $("dt-res").innerHTML = alertHTML("error", "mdiAlertCircleOutline", esc(t("Dock-Test abgebrochen: {m}", { m: msg })));
 }
 
@@ -1110,6 +1216,7 @@ function draw() {
   $("s-pos").textContent = (th.homed_axes || "").length === 3 && pos ? `X ${f1(pos[0])}  Y ${f1(pos[1])}  Z ${dec(Number(pos[2]).toFixed(2))}` : t("Nicht gehomed");
   const p = CFG.probe || {};
   $("s-off").textContent = p.x_offset !== undefined ? `${dec(p.x_offset)} / ${dec(p.y_offset)} / ${dec(p.z_offset)}` : "–";
+  drawGuard();
 
   const lock = !ready || pr || busy > 0;
   document.querySelectorAll(".act").forEach((b) => setDis(b, lock));
@@ -1128,6 +1235,19 @@ function draw() {
   drawSetup();
   drawBed();
   drawMesh();
+}
+
+/* print guard: is PROBE_GUARD called in PRINT_START / START_PRINT? */
+function drawGuard() {
+  const key = Object.keys(CFG).find((k) => k === "gcode_macro print_start") || Object.keys(CFG).find((k) => k === "gcode_macro start_print");
+  const name = key ? key.split(" ")[1].toUpperCase() : "PRINT_START";
+  const on = key && /(^|\s)PROBE_GUARD\b/m.test(String((CFG[key] || {}).gcode || ""));
+  const html = !key ? `<span class="muted">${esc(t("kein {m}-Makro", { m: name }))}</span>`
+    : on ? `<span class="chip success--text">${esc(t("aktiv in {m}", { m: name }))}</span>`
+    : `<span class="chip warning--text">${esc(t("nicht in {m}", { m: name }))}</span>`;
+  if ($("s-guard").dataset.h !== html) { $("s-guard").innerHTML = html; $("s-guard").dataset.h = html; }
+  const hint = !installed || on ? "" : t("PROBE_GUARD in {m} prüft vor jedem Druck, dass die Probe im Dock ist, und legt sie notfalls ab. ./install.sh fügt die Zeile auf Wunsch ein.", { m: name });
+  $("guard-hint").textContent = hint; $("guard-hint").classList.toggle("hide", !hint);
 }
 
 function bindAlerts() {
@@ -1195,15 +1315,20 @@ function drawBed() {
     svg += `<path d="M${zx - 3} ${zy}H${zx + 3}M${zx} ${zy - 3}V${zy + 3}" stroke="currentColor" stroke-opacity=".5" stroke-width=".8"/><text x="${zx + 4}" y="${zy - 2}" opacity=".5" style="font-size:5px">Z0</text>`;
   }
   if (hasDock) {
-    // probe path when attaching: park position → staging → dock Y → into the dock
-    const path = [[+v.safe_x, +v.safe_y], [+v.dock_x + +v.approach_dx, +v.staging_y], [+v.dock_x + +v.approach_dx, +v.dock_y], [+v.dock_x, +v.dock_y]]
-      .filter((q) => !q.some(isNaN)).map((q) => `${X(q[0] + xo).toFixed(1)},${Y(q[1] + yo).toFixed(1)}`).join(" ");
-    if (path) svg += `<polyline points="${path}" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width=".7" stroke-dasharray="1.5 1.5"/>`;
-    // dock holder, open towards the approach side (right)
+    // probe path when attaching: park position → waypoints (relative to the dock)
+    const P = dockPaths(v), D = [+v.dock_x, +v.dock_y];
+    const pts = [[+v.safe_x, +v.safe_y], ...P.attach.map(([x, y]) => [D[0] + x, D[1] + y])].filter((q) => !q.some(isNaN));
+    if (pts.length > 1) svg += `<polyline points="${pts.map((q) => `${X(q[0] + xo).toFixed(1)},${Y(q[1] + yo).toFixed(1)}`).join(" ")}" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width=".7" stroke-dasharray="1.5 1.5"/>`;
+    // dock holder, open towards the side the toolhead enters from
+    const i0 = P.attach.findIndex(([x, y]) => x === 0 && y === 0);
+    const from = i0 > 0 ? P.attach[i0 - 1] : [+v.safe_x - D[0], +v.safe_y - D[1]];
+    const side = Math.abs(from[0]) >= Math.abs(from[1]) ? (from[0] >= 0 ? "r" : "l") : (from[1] >= 0 ? "b" : "f");
     const dx = X(dpx), dy = Y(dpy), w = Math.max(9 * sc, 9), h = Math.max(11 * sc, 11);
-    svg += `<rect x="${dx - w / 2}" y="${dy - h / 2}" width="${w}" height="${h}" rx="1.5" fill="currentColor" fill-opacity=".08"/>` +
-      `<path d="M${dx + w / 2} ${dy - h / 2}H${dx - w / 2}V${dy + h / 2}H${dx + w / 2}" fill="none" stroke="currentColor" stroke-opacity=".8" stroke-width="1.4" stroke-linejoin="round"/>` +
-      `<text x="${dx}" y="${dy - h / 2 - 2.5}" text-anchor="middle" style="font-weight:700">${esc(t("Dock"))}</text>`;
+    const L = dx - w / 2, Rr = dx + w / 2, T = dy - h / 2, Bt = dy + h / 2;
+    const cup = { r: `M${Rr} ${T}H${L}V${Bt}H${Rr}`, l: `M${L} ${T}H${Rr}V${Bt}H${L}`, f: `M${L} ${Bt}V${T}H${Rr}V${Bt}`, b: `M${L} ${T}V${Bt}H${Rr}V${T}` }[side];
+    svg += `<rect x="${L}" y="${T}" width="${w}" height="${h}" rx="1.5" fill="currentColor" fill-opacity=".08"/>` +
+      `<path d="${cup}" fill="none" stroke="currentColor" stroke-opacity=".8" stroke-width="1.4" stroke-linejoin="round"/>` +
+      `<text x="${dx}" y="${side === "b" ? Bt + 7 : T - 2.5}" text-anchor="middle" style="font-weight:700">${esc(t("Dock"))}</text>`;
   }
   for (const s of screwList()) {
     const px = s.x + xo, py = s.y + yo, r = res[s.key];
@@ -1290,6 +1415,319 @@ function drawMesh() {
       `</td></tr>`;
   }).join("") : `<tr><td class="muted">${esc(t("Keine gespeicherten Profile."))}</td></tr>`) + "</tbody>";
   $("prof-tbl").querySelectorAll(".act").forEach((b) => setDis(b, lock));
+}
+
+// =====================================================================
+// History – measurements over time. Source is Moonraker's G-code store, so
+// runs from KlipperScreen, macros or PRINT_START are picked up as well; the
+// result is kept in Moonraker's database (namespace "dockprobe").
+// =====================================================================
+const HIST = { items: [], cleared: 0, loaded: false, range: store.get("histRange", 90), all: false, cmp: null, timer: 0, syncing: false, key: "" };
+const HIST_NS = "dockprobe", HIST_KEY = "history", HIST_MAX = 600, HIST_MESH_KEEP = 40;
+const hKey = (e) => `${e.k}@${Number(e.t).toFixed(2)}`;
+
+async function histRead() {
+  try {
+    const v = (await rpc("server.database.get_item", { namespace: HIST_NS, key: HIST_KEY })).value || {};
+    return { items: Array.isArray(v.items) ? v.items : [], cleared: +v.cleared || 0 };
+  } catch { return { items: [], cleared: 0 }; }
+}
+const histWrite = (items, cleared) => rpc("server.database.post_item", { namespace: HIST_NS, key: HIST_KEY, value: { v: 1, cleared, items } });
+
+async function histLoad() {
+  const d = await histRead();
+  HIST.items = d.items; HIST.cleared = d.cleared; HIST.loaded = true;
+  drawHistory();
+  histSync();
+}
+function histSoon() { clearTimeout(HIST.timer); HIST.timer = setTimeout(histSync, 1500); }
+
+/* pick the measurements out of Moonraker's G-code store */
+function histParse(entries) {
+  const out = [];
+  let acc = null, probe = null, scr = null;
+  const endScrews = () => {
+    if (scr && scr.items.length >= 2 && scr.base !== null) {
+      const max = Math.max(...scr.items.map((i) => Math.abs(i.z - scr.base)));
+      const worst = scr.items.reduce((w, i) => (adjMin(i.adj) > adjMin(w.adj) ? i : w), scr.items[0]);
+      out.push({ t: scr.t, k: "screws", max: +max.toFixed(5), adj: worst.adj ? `${worst.sign} ${worst.adj}` : "",
+        s: scr.items.map((i) => [i.name, i.adj ? `${i.sign} ${i.adj}` : "base"]) });
+    }
+    scr = null;
+  };
+  for (const e of entries) {
+    if (e.type === "command") continue;
+    const t = +e.time;
+    for (const raw of String(e.message || "").split("\n")) {
+      const line = raw.replace(/^\/\/\s?/, "").replace(/^!!\s?/, "").trim();
+      if (/^01:20 means 1 full turn/.test(line)) { endScrews(); scr = { t, base: null, items: [] }; continue; }
+      let m = line.match(/^(.+?) : x=(-?[\d.]+), y=(-?[\d.]+), z=(-?[\d.]+)(?: : adjust (CW|CCW) (\d+:\d+))?$/);
+      if (m && scr) {
+        const base = /\(base\)$/.test(m[1]);
+        if (base) scr.base = +m[4];
+        scr.items.push({ name: m[1].replace(/\s*\(base\)$/, ""), z: +m[4], sign: m[5] || "", adj: base ? "" : m[6] || "" });
+        continue;
+      }
+      if (scr) endScrews();
+      if (/^PROBE_ACCURACY at /.test(line)) { acc = { n: 0 }; continue; }
+      m = line.match(/bed will contact at z=(-?[\d.]+)|estimate contact at z=(-?[\d.]+)|^probe at [-\d.]+,[-\d.]+ is z=(-?[\d.]+)/);
+      if (m) {
+        if (acc && m[2] === undefined) acc.n++;
+        probe = { z: +(m[1] ?? m[2] ?? m[3]), rel: m[3] === undefined };
+        continue;
+      }
+      m = line.match(/probe accuracy results:.*range ([\d.]+).*standard deviation ([\d.]+)/);
+      if (m) { out.push({ t, k: "acc", r: +m[1], sd: +m[2], n: acc ? acc.n : 0 }); acc = null; continue; }
+      m = line.match(/^(?:New z_offset|Neuer z_offset) = (-?[\d.]+)/);
+      if (m && probe) { const zo = +m[1]; out.push({ t, k: "zo", zo, next: +(probe.rel ? zo + probe.z : probe.z).toFixed(4) }); probe = null; continue; }
+      m = line.match(/^(?:Mesh range|Mesh-Spanne) (-?[\d.]+) mm \(min (-?[\d.]+) \/ max (-?[\d.]+)\)/);
+      if (m) { out.push({ t, k: "mesh", r: +m[1], lo: +m[2], hi: +m[3] }); continue; }
+      m = line.match(/stepper_z: position_endstop: (-?[\d.]+)/);
+      if (m) { out.push({ t, k: "endstop", pe: +m[1] }); continue; }
+      m = line.match(/(?:Dock test passed|Dock-Test bestanden): (\d+)/);
+      if (m) { out.push({ t, k: "dock", n: +m[1] }); continue; }
+      if (/^Probe not picked up - retrying|^Probe nicht aufgenommen - neuer Versuch/.test(line)) { out.push({ t, k: "retry", a: "attach" }); continue; }
+      if (/^Probe not released - retrying|^Probe nicht abgelegt - neuer Versuch/.test(line)) { out.push({ t, k: "retry", a: "detach" }); continue; }
+      if (/Probe was not picked up - check the dock|Probe wurde nicht aufgenommen - Dock pruefen/.test(line)) { out.push({ t, k: "dockerr", a: "attach" }); continue; }
+      if (/Probe is still attached to the toolhead - check the dock|Probe haengt noch am Toolhead - Dock pruefen/.test(line)) { out.push({ t, k: "dockerr", a: "detach" }); continue; }
+      if (/^PROBE_GUARD: (?:probe is still attached|Probe hängt noch am Toolhead)/.test(line)) out.push({ t, k: "guard" });
+    }
+  }
+  endScrews();
+  // the newest mesh gets its matrix from the live status – only if it really is that mesh
+  const mesh = out.filter((e) => e.k === "mesh").pop(), bm = S.bed_mesh || {}, mat = bm.probed_matrix;
+  if (mesh && mat && mat.length > 1 && mat[0].length > 1) {
+    const flat = mat.flat();
+    if (Math.abs(Math.min(...flat) - mesh.lo) < 6e-5 && Math.abs(Math.max(...flat) - mesh.hi) < 6e-5)
+      Object.assign(mesh, { p: bm.profile_name || "", mn: bm.mesh_min, mx: bm.mesh_max, m: mat.map((r) => r.map((z) => +z.toFixed(4))) });
+  }
+  return out;
+}
+
+async function histSync() {
+  if (!HIST.loaded || HIST.syncing || klippy !== "ready") return;
+  HIST.syncing = true;
+  try {
+    const found = histParse((await rpc("server.gcode_store", { count: 1000 })).gcode_store || []);
+    const have = new Set(HIST.items.map(hKey));
+    const add = found.filter((e) => e.t > HIST.cleared && !have.has(hKey(e)));
+    if (!add.length) return;
+    const d = await histRead();                       // merge with what other browsers stored meanwhile
+    const cleared = Math.max(d.cleared, HIST.cleared);
+    const map = new Map([...d.items, ...HIST.items, ...add].map((e) => [hKey(e), e]));
+    let items = [...map.values()].filter((e) => e.t > cleared).sort((a, b) => a.t - b.t).slice(-HIST_MAX);
+    let n = 0;
+    for (let i = items.length - 1; i >= 0; i--)
+      if (items[i].m && ++n > HIST_MESH_KEEP) { const { m, ...rest } = items[i]; items[i] = rest; }
+    await histWrite(items, cleared);
+    HIST.items = items; HIST.cleared = cleared;
+    drawHistory();
+  } catch (e) { log("!! " + t("Verlauf: {m}", { m: e.message }), "e"); }
+  finally { HIST.syncing = false; }
+}
+
+async function histClear() {
+  if (!(await dialog(t("Verlauf"), esc(t("Alle Einträge des Verlaufs löschen? Das betrifft alle Browser.")), t("Löschen")))) return;
+  try {
+    const st = (await rpc("server.gcode_store", { count: 1 })).gcode_store || [];
+    const cleared = Math.max(st.length ? +st[st.length - 1].time : 0, ...HIST.items.map((e) => e.t), Date.now() / 1000);
+    await histWrite([], cleared);
+    HIST.items = []; HIST.cleared = cleared; HIST.cmp = null;
+    drawHistory();
+  } catch (e) { dialog(t("Fehler"), esc(e.message), null); }
+}
+
+/* metrics with a chart */
+const HM = {
+  acc: { title: "Genauigkeit – Spanne", unit: "µm", d: 1, v: (e) => e.r * 1000, band: [0, 10],
+    tip: (e) => t("Std.-Abw. {sd} µm", { sd: dec((e.sd * 1000).toFixed(1)) }) + (e.n ? " · " + t("{n} Messungen", { n: e.n }) : "") },
+  zo: { title: "Auslösehöhe (gemessener z_offset)", unit: "mm", d: 3, v: (e) => e.next, tip: (e) => t("eingestellt war {z} mm", { z: dec(e.zo.toFixed(3)) }) },
+  screws: { title: "Bettschrauben – größte Abweichung", unit: "mm", d: 3, v: (e) => e.max,
+    limit: () => +(S["gcode_macro _PROBE_VARS"] || {}).max_screw_dev || null, tip: (e) => e.adj ? t("stärkste Korrektur {a}", { a: e.adj }) : "" },
+  mesh: { title: "Bed Mesh – Spanne", unit: "mm", d: 3, v: (e) => e.r, tip: (e) => e.p ? t("Profil {p}", { p: e.p }) : "" },
+  endstop: { title: "Z-Endstop (position_endstop)", unit: "mm", d: 3, v: (e) => e.pe, tip: () => "" },
+};
+const HL = { acc: "Genauigkeit", zo: "z_offset gemessen", screws: "Bettschrauben", mesh: "Bed Mesh", endstop: "Z-Endstop",
+  dock: "Dock-Test", retry: "Wiederholversuch", dockerr: "Dock-Fehler", guard: "Druckschutz" };
+function histText(e) {
+  const n = (v, d) => dec(Number(v).toFixed(d));
+  switch (e.k) {
+    case "acc": return t("Spanne {r} · σ {sd} mm", { r: n(e.r, 4), sd: n(e.sd, 4) });
+    case "zo": return t("{n} mm (eingestellt {z})", { n: n(e.next, 3), z: n(e.zo, 3) });
+    case "screws": return t("max. {m} mm", { m: n(e.max, 3) }) + (e.adj ? ` · ${e.adj}` : "");
+    case "mesh": return t("Spanne {r} mm", { r: n(e.r, 3) }) + (e.p ? ` · ${e.p}` : "");
+    case "endstop": return `position_endstop ${n(e.pe, 3)}`;
+    case "dock": return t("bestanden ({n} Zyklen)", { n: e.n });
+    case "retry": return t(e.a === "attach" ? "Andocken wiederholt" : "Ablegen wiederholt");
+    case "dockerr": return t(e.a === "attach" ? "Probe nicht aufgenommen" : "Probe nicht abgelegt");
+    case "guard": return t("Probe vor dem Druck abgelegt");
+  }
+  return "";
+}
+const locale = () => (LANG === "de" ? "de-DE" : "en-GB");
+const dShort = (s) => new Date(s * 1000).toLocaleDateString(locale(), { day: "numeric", month: "short" });
+const dMid = (s) => new Date(s * 1000).toLocaleString(locale(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const dLong = (s) => new Date(s * 1000).toLocaleString(locale(), { dateStyle: "medium", timeStyle: "short" });
+
+function niceTicks(lo, hi) {
+  if (!(hi > lo)) { const p = Math.abs(lo) * 0.002 || 0.01; lo -= p; hi += p; }
+  const raw = (hi - lo) / 3, mag = 10 ** Math.floor(Math.log10(raw)), f = raw / mag;
+  const step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * mag;
+  const a = Math.floor(lo / step + 1e-9) * step, b = Math.ceil(hi / step - 1e-9) * step, out = [];
+  for (let v = a; v <= b + step / 2 && out.length < 8; v += step) out.push(+v.toFixed(10));
+  return out.length > 1 ? out : [a, a + step];
+}
+function heatColor(z, amp) {
+  const k = Math.min(Math.abs(z) / amp, 1), [r, g, b] = z < 0 ? [66, 165, 245] : [239, 83, 80];
+  const mix = (a) => Math.round(230 + (a - 230) * k);
+  return `rgb(${mix(r)},${mix(g)},${mix(b)})`;
+}
+function surfaceColor() {
+  const p = document.querySelector('.panel[data-p="history"]');
+  const c = p ? getComputedStyle(p).backgroundColor : "";
+  return !c || /rgba\(.*,\s*0\)$|transparent/.test(c) ? (TH === "light" ? "#fff" : "#1e1e1e") : c;
+}
+
+function histInRange() {
+  const now = Math.max(Date.now() / 1000, ...HIST.items.map((e) => e.t));
+  return HIST.items.filter((e) => !HIST.range || e.t >= now - HIST.range * 86400);
+}
+
+function drawHistory() {
+  const ranges = [[30, "30 Tage"], [90, "90 Tage"], [365, "1 Jahr"], [0, "Alles"]];
+  $("hist-range").innerHTML = ranges.map(([d, l]) => btnHTML({ text: esc(t(l)), variant: "text", color: HIST.range === d ? "primary" : "",
+    cls: HIST.range === d ? "v-btn--active" : "", data: { hr: d } })).join("");
+  $("hist-range").querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.hr === HIST.range)));
+  const body = $("hist-body");
+  if (!HIST.loaded) { body.innerHTML = `<div class="small muted">…</div>`; return; }
+  const items = histInRange();
+  const note = `<div class="small muted mt-4">${esc(t("Messungen werden automatisch aus der Konsole von Moonraker übernommen – auch von KlipperScreen, Makros oder PRINT_START. Moonraker hält die letzten 1000 Konsolenzeilen; dazwischen einmal diese Seite öffnen."))}</div>`;
+  if (!items.length) {
+    body.innerHTML = `<div class="small muted">${esc(t(HIST.items.length ? "Keine Einträge in diesem Zeitraum." : "Noch keine Einträge. Genauigkeit, z_offset, Bettschrauben, Mesh, Z-Endstop und Dock-Tests werden hier über die Zeit dargestellt."))}</div>` + note;
+    return;
+  }
+  const cnt = (k) => items.filter((e) => e.k === k).length;
+  const kpi = [["Dock-Tests bestanden", cnt("dock")], ["Wiederholversuche", cnt("retry")], ["Abbrüche", cnt("dockerr")], ["Druckschutz griff ein", cnt("guard")]];
+  let html = `<div class="kpi-row">${kpi.map(([l, v]) => `<div class="kpi"><div class="l">${esc(t(l))}</div><div class="v">${v}</div></div>`).join("")}</div>`;
+  const kinds = Object.keys(HM).filter((k) => cnt(k));
+  html += `<div class="hcharts">${kinds.map((k) => {
+    const last = items.filter((e) => e.k === k).pop();
+    return `<div class="hchart" data-hk="${k}" tabindex="0" role="img"><div class="hd"><span>${esc(t(HM[k].title))}</span>` +
+      `<span>${esc(dec(HM[k].v(last).toFixed(HM[k].d)))} ${HM[k].unit}</span></div><svg></svg><div class="htip hide"></div></div>`;
+  }).join("")}</div>`;
+  html += `<div id="hist-cmp"></div>`;
+  const rows = items.slice().reverse(), shown = HIST.all ? rows : rows.slice(0, 8);
+  html += `<div class="v-subheader theme--${TH} px-0 mt-2">${esc(t("Einträge"))}</div>` +
+    `<div class="v-data-table v-data-table--dense theme--${TH} hlist"><div class="v-data-table__wrapper"><table><tbody>` +
+    shown.map((e) => `<tr><td><div>${esc(t(HL[e.k] || e.k))}</div><div class="small muted">${esc(dLong(e.t))}</div></td><td class="text-right">${esc(histText(e))}</td></tr>`).join("") +
+    `</tbody></table></div></div>` +
+    (rows.length > 8 ? `<div class="mt-2">${btnHTML({ text: esc(HIST.all ? t("Weniger anzeigen") : t("Alle anzeigen ({n})", { n: rows.length })), variant: "text", color: "primary", id: "hist-all" })}</div>` : "");
+  body.innerHTML = html + note;
+  const dom = [Math.min(...items.map((e) => e.t)), Math.max(...items.map((e) => e.t))];
+  body.querySelectorAll(".hchart").forEach((box) => histChart(box, items.filter((e) => e.k === box.dataset.hk), HM[box.dataset.hk], dom));
+  const all = $("hist-all"); if (all) all.onclick = () => { HIST.all = !HIST.all; drawHistory(); };
+  drawMeshCompare(items);
+}
+
+function histChart(box, list, def, dom) {
+  const svg = box.querySelector("svg"), tip = box.querySelector(".htip");
+  const W = Math.max(200, Math.round(svg.getBoundingClientRect().width) || 300), H = 112, pl = 46, pr = 10, pt = 8, pb = 20;
+  const pts = list.map((e) => ({ e, t: e.t, v: def.v(e) }));
+  const vals = pts.map((p) => p.v), lim = def.limit ? def.limit() : null;
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (def.band) { lo = Math.min(lo, def.band[0]); hi = Math.max(hi, def.band[1] * 1.5); }
+  if (lim) hi = Math.max(hi, lim * 1.1);
+  const ticks = niceTicks(lo, hi), y0 = ticks[0], y1 = ticks[ticks.length - 1];
+  const span = dom[1] - dom[0];
+  const X = (s) => pl + (span > 0 ? (s - dom[0]) / span : 0.5) * (W - pl - pr);
+  const Y = (v) => pt + (1 - (v - y0) / (y1 - y0)) * (H - pt - pb);
+  const ring = surfaceColor(), td = Math.max(0, def.d - (ticks.length > 1 && Math.abs(ticks[1] - ticks[0]) >= 1 ? def.d : 0));
+  let s = "";
+  if (def.band) s += `<rect x="${pl}" y="${Y(Math.min(def.band[1], y1))}" width="${W - pl - pr}" height="${Y(Math.max(def.band[0], y0)) - Y(Math.min(def.band[1], y1))}" fill="var(--v-success-base)" fill-opacity=".1"/>`;
+  for (const v of ticks) s += `<line x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="currentColor" stroke-opacity=".12"/>` +
+    `<text class="ax" x="${pl - 6}" y="${Y(v) + 3.5}" text-anchor="end">${esc(dec(v.toFixed(td)))}</text>`;
+  if (lim) s += `<line x1="${pl}" x2="${W - pr}" y1="${Y(lim)}" y2="${Y(lim)}" stroke="var(--v-warning-base)" stroke-width="1" stroke-dasharray="4 3"/>` +
+    `<text class="ax" x="${W - pr}" y="${Y(lim) - 4}" text-anchor="end">${esc(t("Grenze"))}</text>`;
+  const xl = span > 0 ? [[dom[0], "start"], [dom[1], "end"]] : [[dom[0], "middle"]];
+  if (span > 0 && W > 360) xl.splice(1, 0, [dom[0] + span / 2, "middle"]);
+  s += xl.map(([v, a]) => `<text class="ax" x="${X(v)}" y="${H - 4}" text-anchor="${a}">${esc(dShort(v))}</text>`).join("");
+  if (pts.length > 1) s += `<polyline points="${pts.map((p) => `${X(p.t).toFixed(1)},${Y(p.v).toFixed(1)}`).join(" ")}" fill="none" stroke="var(--v-primary-base)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  s += `<line class="xh" x1="0" x2="0" y1="${pt}" y2="${H - pb}" stroke="currentColor" stroke-opacity=".4" visibility="hidden"/>`;
+  s += pts.map((p, i) => `<circle data-i="${i}" cx="${X(p.t).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="4" fill="var(--v-primary-base)" stroke="${ring}" stroke-width="2"/>`).join("");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = s;
+  const last = pts[pts.length - 1];
+  box.setAttribute("aria-label", `${t(def.title)}: ${t("{n} Werte", { n: pts.length })}, ${t("zuletzt {v}", { v: `${dec(last.v.toFixed(def.d))} ${def.unit}` })}`);
+  // hover / keyboard: crosshair snaps to the nearest measurement
+  let cur = -1;
+  const show = (i) => {
+    if (cur >= 0) svg.querySelector(`circle[data-i="${cur}"]`)?.setAttribute("r", "4");
+    cur = i;
+    if (i < 0) { tip.classList.add("hide"); svg.querySelector(".xh").setAttribute("visibility", "hidden"); return; }
+    const p = pts[i], x = X(p.t), y = Y(p.v);
+    svg.querySelector(`circle[data-i="${i}"]`).setAttribute("r", "6");
+    const xh = svg.querySelector(".xh"); xh.setAttribute("x1", x); xh.setAttribute("x2", x); xh.setAttribute("visibility", "visible");
+    tip.replaceChildren();
+    const b = document.createElement("b"); b.textContent = `${dec(p.v.toFixed(def.d))} ${def.unit}`; tip.appendChild(b);
+    for (const txt of [dLong(p.t), def.tip(p.e)]) if (txt) { const sp = document.createElement("span"); sp.textContent = txt; tip.appendChild(sp); }
+    tip.classList.remove("hide");
+    const sx = svg.getBoundingClientRect().width / W, half = tip.offsetWidth / 2;
+    tip.style.left = Math.min(Math.max(x * sx, half), box.clientWidth - half) + "px";
+    tip.style.top = (svg.offsetTop + y * sx - 10) + "px";
+  };
+  box.onpointermove = (ev) => {
+    const r = svg.getBoundingClientRect(), x = (ev.clientX - r.left) * (W / r.width);
+    let best = 0;
+    pts.forEach((p, i) => { if (Math.abs(X(p.t) - x) < Math.abs(X(pts[best].t) - x)) best = i; });
+    show(best);
+  };
+  box.onpointerleave = () => { if (document.activeElement !== box) show(-1); };
+  box.onfocus = () => show(pts.length - 1);
+  box.onblur = () => show(-1);
+  box.onkeydown = (ev) => {
+    if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+    ev.preventDefault();
+    show(Math.max(0, Math.min(pts.length - 1, (cur < 0 ? pts.length - 1 : cur) + (ev.key === "ArrowLeft" ? -1 : 1))));
+  };
+}
+
+/* compare two stored meshes: difference B − A per point */
+function drawMeshCompare(items) {
+  const el = $("hist-cmp"), meshes = items.filter((e) => e.k === "mesh" && e.m);
+  if (meshes.length < 2) { el.innerHTML = meshes.length ? `<div class="small muted mt-4">${esc(t("Mesh-Vergleich ab zwei gespeicherten Messungen."))}</div>` : ""; return; }
+  const dims = (e) => `${e.m.length}x${e.m[0].length}|${e.mn}|${e.mx}`;
+  let [ka, kb] = HIST.cmp || [];
+  let B = meshes.find((e) => hKey(e) === kb) || meshes[meshes.length - 1];
+  let A = meshes.find((e) => hKey(e) === ka && e !== B) || meshes.slice(0, meshes.indexOf(B)).reverse().find((e) => dims(e) === dims(B)) || meshes.find((e) => e !== B);
+  const opt = (sel) => meshes.slice().reverse().map((e) => `<option value="${esc(hKey(e))}" ${e === sel ? "selected" : ""}>${esc(`${dMid(e.t)} · ${dec(e.r.toFixed(3))} mm`)}</option>`).join("");
+  let html = `<div class="v-subheader theme--${TH} px-0 mt-2">${esc(t("Mesh-Vergleich"))}</div><div class="field-grid mb-3" style="grid-template-columns:repeat(auto-fill,minmax(210px,1fr))">` +
+    fieldHTML({ label: t("Vorher (A)"), id: "hist-a", options: opt(A) }) + fieldHTML({ label: t("Nachher (B)"), id: "hist-b", options: opt(B) }) + `</div>`;
+  if (dims(A) !== dims(B)) html += `<div class="small muted">${esc(t("Unterschiedliche Mesh-Größe oder Fläche (z. B. adaptives Mesh) – nicht vergleichbar."))}</div>`;
+  else {
+    const D = B.m.map((r, i) => r.map((z, j) => z - A.m[i][j])), flat = D.flat();
+    const lo = Math.min(...flat), hi = Math.max(...flat), amp = Math.max(Math.abs(lo), Math.abs(hi), 0.01);
+    html += `<div class="small mb-2">${t("Änderung B − A: <b>{lo}</b> bis <b>{hi}</b> mm · hinten oben", { lo: dec(lo.toFixed(3)), hi: (hi > 0 ? "+" : "") + dec(hi.toFixed(3)) })}</div><table class="heat">`;
+    const sgn = (z) => (Math.abs(z) < 0.0005 ? "0.000" : (z > 0 ? "+" : "") + z.toFixed(3));
+    for (let i = D.length - 1; i >= 0; i--) html += "<tr>" + D[i].map((z) => `<td style="background:${heatColor(z, amp)}">${dec(sgn(z))}</td>`).join("") + "</tr>";
+    html += `</table><div class="heat-legend"><span>${dec((-amp).toFixed(3))}</span><span>0</span><span>+${dec(amp.toFixed(3))}</span></div>`;
+  }
+  el.innerHTML = html;
+  fixLegends(el);
+  const pick = () => { HIST.cmp = [$("hist-a").value, $("hist-b").value]; drawMeshCompare(histInRange()); };
+  $("hist-a").onchange = pick; $("hist-b").onchange = pick;
+}
+
+function histCsv() {
+  const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const val = (e) => HM[e.k] ? HM[e.k].v(e) : e.k === "dock" ? e.n : "";
+  const unit = (e) => HM[e.k] ? HM[e.k].unit : "";
+  const lines = ["time,kind,value,unit,detail", ...HIST.items.map((e) =>
+    [new Date(e.t * 1000).toISOString(), e.k, val(e), unit(e), histText(e)].map(q).join(","))];
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([lines.join("\n") + "\n"], { type: "text/csv" }));
+  a.download = `dockprobe-history-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 // =====================================================================
@@ -1399,8 +1837,8 @@ async function loadSettings() {
     const model = {
       pin: p.pin || "", x_offset: xo, y_offset: yo, z_offset: z ?? 0, speed: n(p.speed, 2),
       mlang: String(v.variable_lang || "de").replace(/["']/g, "").toLowerCase() === "en" ? "en" : "de",
-      dock_x: n(v.variable_dock_x, 1), dock_y: n(v.variable_dock_y, 119), approach_dx: n(v.variable_approach_dx, 20),
-      staging_y: n(v.variable_staging_y, 100), safe_z: n(v.variable_safe_z, 14), travel_f: n(v.variable_travel_f, 4000),
+      dock_x: n(v.variable_dock_x, 1), dock_y: n(v.variable_dock_y, 119), ...dockModel(v, n),
+      retries: n(v.variable_retries, 1), safe_z: n(v.variable_safe_z, 14), travel_f: n(v.variable_travel_f, 4000),
       dock_f: n(v.variable_dock_f, 4000), verify: String(v.variable_verify ?? "True").toLowerCase() !== "false",
       screws, screw_thread: st.screw_thread || "CW-M3", margin: meta.mesh_margin ?? 3, count_x: cx || 5, count_y: cy || cx || 5,
     };
@@ -1450,6 +1888,61 @@ function drawScrewEditor() {
   render();
 }
 
+/* ---- dock paths: waypoints [dx, dy] relative to the dock (same presets as the installer) ---- */
+const DOCK_LAYOUTS = ["right-front", "left-front", "zeroclick", "custom"];
+const LAYOUT_NAMES = { "right-front": "Dock hinten links – von rechts einfahren", "left-front": "Dock hinten rechts – von links einfahren",
+  zeroclick: "Wie im ZeroClick-README-Beispiel", custom: "Eigene Wegpunkte" };
+function presetPaths(layout, d1, d2) {
+  if (layout === "left-front") return [[[-d1, -d2], [-d1, 0], [0, 0], [-d1, 0]], [[-d1, -d2], [-d1, 0], [0, 0], [0, -d2]]];
+  if (layout === "zeroclick") return [[[-d1, -d2], [-d1, 0], [0, 0]], [[0, 0], [-d1, 0], [-d1, -d2]]];
+  return [[[d1, -d2], [d1, 0], [0, 0], [d1, 0]], [[d1, -d2], [d1, 0], [0, 0], [0, -d2]]];
+}
+/* "20,-19; 20,0; 0,0" or "[[20, -19], [20, 0], [0, 0]]" or an array → [[20,-19], …] (null if invalid) */
+function parsePath(src) {
+  let a = src;
+  try {
+    if (typeof a === "string") {
+      const txt = a.trim().replace(/\s+/g, " ");
+      a = txt.startsWith("[") ? JSON.parse(txt) : txt.split(/[;|]/).filter((x) => x.trim()).map((x) => x.split(",").map((c) => c.trim()));
+    }
+  } catch { return null; }
+  if (!Array.isArray(a) || a.length < 2) return null;
+  const out = a.map((q) => Array.isArray(q) && q.length === 2 && q.every((c) => String(c).trim() !== "" && !isNaN(+c)) ? [+q[0], +q[1]] : null);
+  if (out.some((q) => !q) || !out.some(([x, y]) => x === 0 && y === 0)) return null;
+  return out;
+}
+const pathStr = (p) => p.map(([x, y]) => `${fmt(x)},${fmt(y)}`).join("; ");
+const pathCfg = (p) => "[" + p.map(([x, y]) => `[${fmt(x)}, ${fmt(y)}]`).join(", ") + "]";
+/* paths from _PROBE_VARS (settings file or Klipper status); older files without paths → original sequence */
+function dockPaths(v, get = (k) => v[k]) {
+  const ap = parsePath(get("attach_path") ?? ""), dp = parsePath(get("detach_path") ?? "");
+  if (ap && dp) return { attach: ap, detach: dp, layout: String(get("dock_layout") || "").replace(/["']/g, "") };
+  const dy = +(get("dock_y") ?? 119), ad = +(get("approach_dx") ?? 20), sy = +(get("staging_y") ?? dy - 19);
+  const [attach, detach] = presetPaths("right-front", isNaN(ad) ? 20 : ad, Math.abs(dy - sy) || 19);
+  return { attach, detach, layout: "right-front" };
+}
+function dockModel(v) {
+  const P = dockPaths(v, (k) => v["variable_" + k]);
+  const d1 = Math.abs(P.attach[0][0]) || 20, d2 = Math.abs(P.attach[0][1]) || 19;
+  let layout = DOCK_LAYOUTS.includes(P.layout) ? P.layout : "custom";
+  if (layout !== "custom") {
+    const [a, d] = presetPaths(layout, d1, d2);
+    if (pathStr(a) !== pathStr(P.attach) || pathStr(d) !== pathStr(P.detach)) layout = "custom";   // edited by hand
+  }
+  return { dock_layout: layout, d1, d2, attach_txt: pathStr(P.attach), detach_txt: pathStr(P.detach) };
+}
+function syncDockFields() {
+  if (!ED) return;
+  const custom = ED.model.dock_layout === "custom";
+  const box = (k) => { const el = document.querySelector(`.panel[data-p=settings] [data-k="${k}"]`); return el && el.closest(".v-input"); };
+  for (const k of ["d1", "d2"]) box(k)?.classList.toggle("hide", custom);
+  for (const k of ["attach_txt", "detach_txt"]) box(k)?.classList.toggle("hide", !custom);
+  $("dk-hint").textContent = custom
+    ? t("Wegpunkte dx,dy relativ zur Dock-Position, getrennt mit „;“, in Fahrreihenfolge. Ein Punkt muss 0,0 sein (Düse im Dock). Vorher und nachher fährt der Toolhead zur Parkposition.")
+    : t("Anfahrweg: seitlicher Abstand der Einfahrt ins Dock. Y-Abstand: Anfahrbahn vor dem Dock und Weg zum Lösen. Die Reihenfolge der Fahrten bleibt fest – Vorschau unten.");
+  fixLegends($("t-dock"));
+}
+
 /* same calculation as scripts/installer.py → compute() */
 function compute(m) {
   const { xmin, xmax, ymin, ymax } = travel();
@@ -1471,16 +1964,30 @@ function compute(m) {
   });
   const hmz = Math.max(10, Math.ceil(m.z_offset + 4));
   if (m.safe_z < m.z_offset + 3) warn.push(t("Dock-Höhe {a} liegt knapp über der Probe-Spitze ({b}) – Kollisionsgefahr", { a: dec(fmt(m.safe_z)), b: dec(fmt(m.z_offset)) }));
-  if (m.dock_x + m.approach_dx > xmax) warn.push(t("Anfahrpunkt rechts vom Dock liegt außerhalb des Verfahrbereichs"));
-  for (const [nm, val, a, b] of [[t("Dock X"), m.dock_x, xmin, xmax], [t("Dock Y"), m.dock_y, ymin, ymax], [t("Y-Bahn"), m.staging_y, ymin, ymax]])
+  for (const [nm, val, a, b] of [[t("Dock X"), m.dock_x, xmin, xmax], [t("Dock Y"), m.dock_y, ymin, ymax]])
     if (val < a || val > b) warn.push(t("{n} {v} liegt außerhalb des Verfahrbereichs ({a}…{b})", { n: nm, v: dec(fmt(val)), a: dec(fmt(a)), b: dec(fmt(b)) }));
+  let attach, detach;
+  if (m.dock_layout === "custom") {
+    attach = parsePath(m.attach_txt); detach = parsePath(m.detach_txt);
+    if (!attach || !detach) return { error: t("Ungültige Wegpunkte – Format: dx,dy; dx,dy (mindestens zwei Punkte, einer davon 0,0)") };
+  } else {
+    if (!(m.d1 > 0) || !(m.d2 > 0)) return { error: t("Anfahrweg und Y-Abstand müssen größer als 0 sein.") };
+    [attach, detach] = presetPaths(m.dock_layout, m.d1, m.d2);
+  }
+  for (const [kind, path] of [[t("Andocken"), attach], [t("Ablegen"), detach]])
+    for (const [px, py] of path) {
+      const x = m.dock_x + px, y = m.dock_y + py;
+      if (x < xmin || x > xmax || y < ymin || y > ymax) warn.push(t("Wegpunkt {p} ({k}) liegt außerhalb des Verfahrbereichs", { p: `${dec(fmt(px))} / ${dec(fmt(py))}`, k: kind }));
+    }
+  const retries = Math.max(0, Math.min(5, Math.round(m.retries)));
   if (!/^[\^!~]*[A-Za-z0-9_:.]+$/.test(m.pin)) warn.push(t("Probe-Pin sieht ungültig aus"));
-  return { mesh_min, mesh_max, safe, screws, hmz, warn, cover: [[nxl, nxh], [nyl, nyh]] };
+  return { mesh_min, mesh_max, safe, screws, hmz, warn: [...new Set(warn)], cover: [[nxl, nxh], [nyl, nyh]], attach, detach, retries };
 }
 
 function updatePreview() {
   if (!ED) return;
   const R = compute(ED.model);
+  syncDockFields();
   if (R.error) { $("ed-prev").innerHTML = `<div class="error--text">${esc(R.error)}</div>`; return; }
   const row = (a, b) => `<div><span>${a}</span><span>${b}</span></div>`;
   const d = (v) => dec(fmt(v));
@@ -1489,6 +1996,8 @@ function updatePreview() {
     row(esc(t("Düse beim Mesh")), `X ${d(R.cover[0][0])}…${d(R.cover[0][1])}, Y ${d(R.cover[1][0])}…${d(R.cover[1][1])}`) +
     row(esc(t("Referenz / Papiertest")), `${d(R.safe[0])}, ${d(R.safe[1])}`) +
     row("horizontal_move_z", d(R.hmz)) +
+    [[t("Andocken"), R.attach], [t("Ablegen"), R.detach]].map(([k, p]) =>
+      row(esc(k), [[R.safe[0] - ED.model.dock_x, R.safe[1] - ED.model.dock_y], ...p].map(([x, y]) => `${d(ED.model.dock_x + x)},${d(ED.model.dock_y + y)}`).join(" → "))).join("") +
     R.screws.map((s) => row(esc(screwLabel(s.name)), `${d(s.x)}, ${d(s.y)}${s.dist >= 0.5 ? ` <span class="muted">(${esc(t("{d} mm daneben", { d: s.dist.toFixed(0) }))})</span>` : ""}`)).join("") +
     R.warn.map((w) => `<div class="warning--text">⚠ ${esc(w)}</div>`).join("");
   edInputs().forEach((el) => {
@@ -1505,7 +2014,7 @@ function secRange(L, name) {
   if (e < 0) e = L.length;
   return [s, e];
 }
-function setOpt(L, sec, key, val) {
+function setOpt(L, sec, key, val, after, comment) {
   const r = secRange(L, sec);
   if (!r) throw new Error(t("Section [{s}] fehlt in {f}", { s: sec, f: SETTINGS }));
   const re = new RegExp(`^(${key}\\s*[:=]\\s*)(.*?)(\\s+[#;].*)?$`, "i");
@@ -1513,9 +2022,16 @@ function setOpt(L, sec, key, val) {
     const m = L[i].match(re);
     if (m) { L[i] = m[1] + val + (m[3] || ""); return; }
   }
-  let at = L.findIndex((l, i) => i > r[0] && i < r[1] && /^gcode\s*:/.test(l));
+  let at = after ? L.findIndex((l, i) => i > r[0] && i < r[1] && new RegExp(`^${after}\\s*[:=]`, "i").test(l)) + 1 : 0;
+  if (at <= 0) at = L.findIndex((l, i) => i > r[0] && i < r[1] && /^gcode\s*:/.test(l));
   if (at < 0) { at = r[1]; while (at > r[0] + 1 && L[at - 1].trim() === "") at--; }
-  L.splice(at, 0, `${key}: ${val}`);
+  const pad = " ".repeat(Math.max(1, 23 - key.length));
+  L.splice(at, 0, ...(comment ? [`# ${comment}`] : []), `${key}:${pad}${val}`);
+}
+function delOpt(L, sec, key) {
+  const r = secRange(L, sec);
+  if (!r) return;
+  for (let i = r[1] - 1; i > r[0]; i--) if (new RegExp(`^${key}\\s*[:=]`, "i").test(L[i])) L.splice(i, 1);
 }
 function setScrews(L, screws) {
   const r = secRange(L, "screws_tilt_adjust");
@@ -1539,9 +2055,14 @@ function setMeta(L, m, R) {
 
 function buildFiles(m, R) {
   const L = ED.text.split("\n"), pv = "gcode_macro _probe_vars";
-  for (const [k, v] of [["dock_x", m.dock_x], ["dock_y", m.dock_y], ["approach_dx", m.approach_dx], ["staging_y", m.staging_y],
+  for (const [k, v] of [["dock_x", m.dock_x], ["dock_y", m.dock_y],
     ["safe_x", R.safe[0]], ["safe_y", R.safe[1]], ["safe_z", m.safe_z], ["travel_f", m.travel_f], ["dock_f", m.dock_f]])
     setOpt(L, pv, "variable_" + k, fmt(v));
+  setOpt(L, pv, "variable_dock_layout", `"${m.dock_layout}"`, "variable_dock_y", t("Andock-Wege: Wegpunkte [dx, dy] relativ zu dock_x/dock_y (Vorlage: dock_layout)"));
+  setOpt(L, pv, "variable_attach_path", pathCfg(R.attach), "variable_dock_layout");
+  setOpt(L, pv, "variable_detach_path", pathCfg(R.detach), "variable_attach_path");
+  setOpt(L, pv, "variable_retries", String(R.retries), "variable_detach_path", t("retries: Wiederholversuche, wenn die Pin-Prüfung nach dem Andocken/Ablegen fehlschlägt"));
+  delOpt(L, pv, "variable_approach_dx"); delOpt(L, pv, "variable_staging_y");
   setOpt(L, pv, "variable_verify", m.verify ? "True" : "False");
   setOpt(L, pv, "variable_lang", `"${m.mlang}"`);
   setOpt(L, "probe", "pin", m.pin.trim());
@@ -1576,8 +2097,8 @@ function buildFiles(m, R) {
 
 const LABELS = {
   pin: "Probe-Pin", x_offset: "x_offset", y_offset: "y_offset", z_offset: "z_offset", speed: "Probe-Geschwindigkeit", mlang: "Klipper-Meldungen",
-  dock_x: "Dock X", dock_y: "Dock Y", approach_dx: "Anfahrweg rechts", staging_y: "Y-Bahn", safe_z: "Z Dock-Fahrten",
-  travel_f: "Verfahren", dock_f: "Dock-Geschwindigkeit", verify: "Status prüfen", screw_thread: "Gewinde",
+  dock_x: "Dock X", dock_y: "Dock Y", dock_layout: "Dock-Layout", retries: "Wiederholversuche", safe_z: "Z Dock-Fahrten",
+  travel_f: "Verfahrgeschwindigkeit", dock_f: "Dock-Geschwindigkeit", verify: "Status prüfen", screw_thread: "Gewinde",
   margin: "Randabstand", count_x: "Punkte X", count_y: "Punkte Y",
 };
 
@@ -1590,9 +2111,12 @@ async function saveSettings() {
   if ((S.configfile || {}).save_config_pending) return dialog(t("Erst speichern"), esc(t("Es gibt ungespeicherte Kalibrierwerte (SAVE_CONFIG ausstehend). Bitte zuerst Save Config ausführen – ein Neustart würde sie verwerfen.")), null);
   if ((S.manual_probe || {}).is_active) return snack(t("Erst den Papiertest abschließen."));
 
-  const show = (v) => typeof v === "boolean" ? t(v ? "ja" : "nein") : typeof v === "number" ? dec(fmt(v)) : v;
+  const show = (v, k) => k === "dock_layout" ? t(LAYOUT_NAMES[v] || v) : typeof v === "boolean" ? t(v ? "ja" : "nein") : typeof v === "number" ? dec(fmt(v)) : v;
   const diff = [];
-  for (const k in LABELS) if (JSON.stringify(m[k]) !== JSON.stringify(ED.base[k])) diff.push([t(LABELS[k]), esc(show(ED.base[k])), esc(show(m[k]))]);
+  for (const k in LABELS) if (JSON.stringify(m[k]) !== JSON.stringify(ED.base[k])) diff.push([t(LABELS[k]), esc(show(ED.base[k], k)), esc(show(m[k], k))]);
+  const B = compute(ED.base);
+  for (const [k, lab] of [["attach", "Wegpunkte Andocken"], ["detach", "Wegpunkte Ablegen"]])
+    if (!B.error && pathStr(B[k]) !== pathStr(R[k])) diff.push([t(lab), esc(pathStr(B[k])), esc(pathStr(R[k]))]);
   const sStr = (a) => a.map((s) => `${esc(s.name)} (${dec(fmt(s.x))}, ${dec(fmt(s.y))})`).join("<br>");
   if (JSON.stringify(m.screws) !== JSON.stringify(ED.base.screws)) diff.push([t("Schrauben"), sStr(ED.base.screws), sStr(m.screws)]);
   if (!diff.length && ED.schema >= SCHEMA) return snack(t("Keine Änderungen."));
@@ -1625,7 +2149,7 @@ function readEditor() {
     else if (el.type === "number") { const v = parseFloat(String(el.value).replace(",", ".")); if (!isNaN(v)) m[k] = v; }
     else m[k] = el.value;
   });
-  m.count_x = Math.round(m.count_x); m.count_y = Math.round(m.count_y);
+  m.count_x = Math.round(m.count_x); m.count_y = Math.round(m.count_y); m.retries = Math.max(0, Math.min(5, Math.round(m.retries)));
   document.querySelectorAll(".screw-row").forEach((row) => {
     const s = m.screws[+row.dataset.i];
     if (!s) return;
@@ -1818,6 +2342,7 @@ function setLang(l, persist) {
   buildJog(); buildPaperButtons();
   if (lastAvail) buildNav(lastAvail);
   if (ED) { readEditor(); fillEditor(); }
+  drawHistory();
   fixLegends(); moveSlider();
   render();
 }
@@ -1870,12 +2395,21 @@ document.addEventListener("click", async (e) => {
   if (del && ED && !del.disabled) { readEditor(); ED.model.screws.splice(+del.dataset.del, 1); drawScrewEditor(); updatePreview(); return; }
   const tb = e.target.closest("#tabs .v-tab");
   if (tb) return openTab(tb.dataset.t);
+  const hr = e.target.closest("[data-hr]");
+  if (hr) { HIST.range = +hr.dataset.hr; store.set("histRange", HIST.range); HIST.cmp = null; return drawHistory(); }
   const si = e.target.closest("[data-step]");
   if (si) { const st = store.get("setup", {}); setStep(si.dataset.step, !st[si.dataset.step]); }
 });
 
 document.addEventListener("input", (e) => {
-  if (ED && e.target.closest(".panel[data-p=settings] .tab")) { readEditor(); updatePreview(); }
+  if (!ED || !e.target.closest(".panel[data-p=settings] .tab")) return;
+  const prev = ED.model.dock_layout;
+  readEditor();
+  if (e.target.dataset.k === "dock_layout" && prev !== "custom" && ED.model.dock_layout === "custom") {
+    const [a, d] = presetPaths(prev, ED.model.d1, ED.model.d2);
+    setField("attach_txt", pathStr(a)); setField("detach_txt", pathStr(d));
+  }
+  updatePreview();
 });
 document.addEventListener("focusin", (e) => {
   const f = e.target.closest(".v-text-field"); if (!f) return;
@@ -1888,9 +2422,9 @@ document.addEventListener("focusout", (e) => {
 
 /* distribute panels over 1–3 columns like Mainsail's dashboard */
 const LAYOUTS = {
-  1: [["setup", "probe", "bed", "mesh", "cal", "settings", "docktest"]],
-  2: [["setup", "probe", "docktest", "cal"], ["bed", "mesh", "settings"]],
-  3: [["setup", "probe", "docktest"], ["bed", "mesh"], ["cal", "settings"]],
+  1: [["setup", "probe", "bed", "mesh", "cal", "settings", "docktest", "history"]],
+  2: [["setup", "probe", "docktest", "cal", "history"], ["bed", "mesh", "settings"]],
+  3: [["setup", "probe", "docktest"], ["bed", "mesh", "history"], ["cal", "settings"]],
 };
 let curCols = 0;
 function layoutCols() {
@@ -1902,7 +2436,7 @@ function layoutCols() {
     const c = $("col" + i);
     c.className = i > n ? "hide" : `col-12 col-md-${12 / n} pb-0`;
   }
-  requestAnimationFrame(() => { moveSlider(); if (ACC.samples.length) drawAccuracy(); });
+  requestAnimationFrame(() => { moveSlider(); if (ACC.samples.length) drawAccuracy(); if (HIST.loaded) drawHistory(); });
 }
 
 let DT_RUNNING = false;
@@ -1933,8 +2467,14 @@ function wire() {
   $("ed-reset").onclick = () => { if (ED) { ED.model = JSON.parse(JSON.stringify(ED.base)); fillEditor(); } };
   $("shell-on").checked = SHELL.enabled;
   $("shell-on").onchange = () => { store.set("shell", $("shell-on").checked); location.reload(); };
+  $("hist-csv").onclick = () => histCsv();
+  $("hist-clear").onclick = () => histClear();
   $("setup-reset").onclick = async () => { if (await dialog(t("Einrichtung"), esc(t("Einrichtung zurücksetzen?")), "OK")) { store.set("setup", {}); render(); } };
-  window.addEventListener("resize", () => { layoutNav(); layoutCols(); moveSlider(); if (ACC.samples.length) drawAccuracy(); });
+  let rsT = 0;
+  window.addEventListener("resize", () => {
+    layoutNav(); layoutCols(); moveSlider(); if (ACC.samples.length) drawAccuracy();
+    clearTimeout(rsT); rsT = setTimeout(() => HIST.loaded && drawHistory(), 200);
+  });
 }
 
 (async function start() {
@@ -1942,7 +2482,7 @@ function wire() {
     try { if (window.top.dockprobeShowProbe) { window.top.dockprobeShowProbe(); history.back(); return; } } catch { /* foreign page */ }
   }
   expand();
-  buildJog(); buildPaperButtons();
+  buildJog(); buildPaperButtons(); drawHistory();
   wire();
   NAV.open = !isMobile(); layoutNav(); layoutCols();
   const ok = await loadMainsailCss();

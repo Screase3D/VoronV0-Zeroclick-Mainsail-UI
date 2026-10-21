@@ -6,7 +6,7 @@
 #
 #  Die Zeilen mit "#@" merkt sich der Installer für --reconfigure.
 # =====================================================================
-#@schema 2
+#@schema 3
 #@mesh_margin ${mesh_margin}
 ${screw_meta}
 
@@ -14,8 +14,12 @@ ${screw_meta}
 description: Einstellungen für Dock, Wege und Ablauf (voron0-dockprobe)
 variable_dock_x:        ${dock_x}
 variable_dock_y:        ${dock_y}
-variable_approach_dx:   ${approach_dx}
-variable_staging_y:     ${staging_y}
+# Andock-Wege: Wegpunkte [dx, dy] relativ zu dock_x/dock_y (Vorlage: dock_layout)
+variable_dock_layout:   "${dock_layout}"
+variable_attach_path:   ${attach_path}
+variable_detach_path:   ${detach_path}
+# retries: Wiederholversuche, wenn die Pin-Prüfung nach dem Andocken/Ablegen fehlschlägt
+variable_retries:       ${retries}
 variable_safe_x:        ${safe_x}
 variable_safe_y:        ${safe_y}
 variable_safe_z:        ${safe_z}
