@@ -8,9 +8,13 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/img/icons/favicon-32x32.png">
 <style>
 /* ------------------------------------------------------------------
-   Diese Seite lädt zur Laufzeit die CSS-Dateien der installierten
-   Mainsail-Version und nutzt dieselben Vuetify-Klassen. Hier stehen nur
-   Mainsails komponenten-lokale Regeln sowie Seiten-eigene Ergänzungen.
+   voron0-dockprobe web UI
+   SPDX-License-Identifier: GPL-3.0-or-later
+
+   At runtime this page loads the stylesheets of the installed Mainsail
+   version and uses the same Vuetify class names. This block only holds
+   a few component-scoped rules mirrored from Mainsail (marked below,
+   Mainsail © mainsail-crew, GPL-3.0) plus page-specific additions.
    ------------------------------------------------------------------ */
 html { overflow-y: auto; }
 body { margin: 0; background: #121212; }
@@ -42,7 +46,7 @@ header.topbar { z-index: 8 !important; }
 .panel-toolbar .v-btn { height: 100% !important; max-height: none; }
 .panel.accent-panel { box-shadow: 0 0 0 2px var(--v-primary-base) !important; }
 
-/* Button-Gruppen (Mainsail: ToolheadControls) */
+/* Button groups (Mainsail: ToolheadControls) */
 ._btn-group { border-radius: 4px; display: inline-flex; flex-wrap: nowrap; max-width: 100%; min-width: 100%; width: 100%; }
 ._btn-group .v-btn { border-radius: 0; border-color: rgba(255,255,255,.12); border-style: solid; border-width: thin; box-shadow: none; height: 28px !important; opacity: .8; min-width: auto !important; flex: 1 1 0; padding: 0 4px !important; }
 ._btn-group .v-btn.primary { opacity: 1; flex: 0 0 40px; }
@@ -51,7 +55,7 @@ header.topbar { z-index: 8 !important; }
 ._btn-group .v-btn:not(:first-child) { border-left-width: 0; }
 html.theme--light ._btn-group .v-btn { border-color: rgba(0,0,0,.12); }
 
-/* Seiten-eigene Bausteine */
+/* Page-specific building blocks */
 .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .btn-row + .btn-row { margin-top: 8px; }
 .field-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 16px 12px; }
@@ -101,7 +105,7 @@ html.theme--light #bed .bed { fill: rgba(0,0,0,.03); stroke: rgba(0,0,0,.3); }
 .mp-z { display: flex; align-items: center; justify-content: center; gap: 4px; }
 .kbd { display: inline-block; padding: 0 5px; border: 1px solid currentColor; border-radius: 3px; font-size: 11px; opacity: .7; }
 
-/* Ersatz-Stil, falls Mainsails CSS nicht geladen werden kann */
+/* Fallback style if Mainsail's CSS cannot be loaded */
 body.no-mainsail { font-family: Roboto, system-ui, sans-serif; color: #fff; }
 body.no-mainsail .v-card, body.no-mainsail .v-sheet { background: #1e1e1e; border-radius: 4px; }
 body.no-mainsail .v-toolbar { background: #272727; display: flex; align-items: center; }
@@ -137,7 +141,7 @@ body.no-mainsail .v-btn { background: #333; color: #fff; border: 0; border-radiu
       <div class="container container--fluid px-3 px-sm-6 py-sm-6 mx-auto" id="page-container">
         <div id="alerts"></div>
         <div class="row">
-          <!-- Spalten: Panels werden je nach Breite per JS verteilt -->
+          <!-- Columns: panels are distributed by JS depending on the width -->
           <div class="col" id="col1">
             <x-panel p="setup" icon="mdiFormatListChecks" title="Einrichtung">
               <x-tools><x-btn variant="icon" id="setup-reset" title="Zurücksetzen" icon="mdiReload"></x-btn></x-tools>
@@ -320,7 +324,7 @@ body.no-mainsail .v-btn { background: #333; color: #fff; border: 0; border-radiu
     </div>
   </main>
 
-  <!-- Papiertest (wie Mainsails Manual-Probe-Dialog) -->
+  <!-- Paper test (like Mainsail's manual probe dialog) -->
   <div id="mp" class="v-dialog__content hide" style="z-index:202;">
     <div class="v-dialog v-dialog--active v-dialog--persistent" style="max-width:420px;">
       <x-panel p="mpd" icon="mdiArrowCollapseDown" title="Papiertest" fixed>
@@ -339,7 +343,7 @@ body.no-mainsail .v-btn { background: #333; color: #fff; border: 0; border-radiu
           </div>
           <div class="_btn-group v-item-group theme--dark mt-6" id="mp-up"></div>
           <div class="_btn-group v-item-group theme--dark mt-3" id="mp-down"></div>
-          <div class="small muted mt-4"><span class="kbd">↑</span> <span class="kbd">↓</span> ±0,05 · <span class="kbd">Shift</span> ±0,01 · <span class="kbd">Bild↑</span> <span class="kbd">Bild↓</span> ±0,1</div>
+          <div class="small muted mt-4" id="mp-hint"></div>
         </div>
         <div class="v-card__actions">
           <div class="spacer"></div>
@@ -369,24 +373,24 @@ body.no-mainsail .v-btn { background: #333; color: #fff; border: 0; border-radiu
 <script>
 "use strict";
 const ICON = {"mdiAlertCircleOutline":"M11,15H13V17H11V15M11,7H13V13H11V7M12,2C6.47,2 2,6.5 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20Z","mdiAlertOctagonOutline":"M8.27,3L3,8.27V15.73L8.27,21H15.73C17.5,19.24 21,15.73 21,15.73V8.27L15.73,3M9.1,5H14.9L19,9.1V14.9L14.9,19H9.1L5,14.9V9.1M11,15H13V17H11V15M11,7H13V13H11V7","mdiAlertOutline":"M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16","mdiArrowCollapseDown":"M19.92,12.08L12,20L4.08,12.08L5.5,10.67L11,16.17V2H13V16.17L18.5,10.66L19.92,12.08M12,20H2V22H22V20H12Z","mdiArrowExpandUp":"M2,20V22H22V20H13V5.83L18.5,11.33L19.92,9.92L12,2L4.08,9.92L5.5,11.33L11,5.83V20H2Z","mdiChartBellCurve":"M9.96,11.31C10.82,8.1 11.5,6 13,6C14.5,6 15.18,8.1 16.04,11.31C17,14.92 18.1,19 22,19V17C19.8,17 19,14.54 17.97,10.8C17.08,7.46 16.15,4 13,4C9.85,4 8.92,7.46 8.03,10.8C7.03,14.54 6.2,17 4,17V2H2V22H22V20H4V19C7.9,19 9,14.92 9.96,11.31Z","mdiCheckCircle":"M12 2C6.5 2 2 6.5 2 12S6.5 22 12 22 22 17.5 22 12 17.5 2 12 2M10 17L5 12L6.41 10.59L10 14.17L17.59 6.58L19 8L10 17Z","mdiCheckboxBlankOutline":"M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M19,5V19H5V5H19Z","mdiCheckboxMarked":"M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3Z","mdiChevronDown":"M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z","mdiChevronTripleLeft":"M9.42,7.41L4.83,12L9.42,16.59L8,18L2,12L8,6L9.42,7.41M15.42,7.41L10.83,12L15.42,16.59L14,18L8,12L14,6L15.42,7.41M21.42,7.41L16.83,12L21.42,16.59L20,18L14,12L20,6L21.42,7.41Z","mdiChevronTripleRight":"M14.58,16.59L19.17,12L14.58,7.41L16,6L22,12L16,18L14.58,16.59M8.58,16.59L13.17,12L8.58,7.41L10,6L16,12L10,18L8.58,16.59M2.58,16.59L7.17,12L2.58,7.41L4,6L10,12L4,18L2.58,16.59Z","mdiCloseThick":"M20 6.91L17.09 4L12 9.09L6.91 4L4 6.91L9.09 12L4 17.09L6.91 20L12 14.91L17.09 20L20 17.09L14.91 12L20 6.91Z","mdiCog":"M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z","mdiConsoleLine":"M13,19V16H21V19H13M8.5,13L2.47,7H6.71L11.67,11.95C12.25,12.54 12.25,13.5 11.67,14.07L6.74,19H2.5L8.5,13Z","mdiContentSave":"M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z","mdiCrosshairsGps":"M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8M3.05,13H1V11H3.05C3.5,6.83 6.83,3.5 11,3.05V1H13V3.05C17.17,3.5 20.5,6.83 20.95,11H23V13H20.95C20.5,17.17 17.17,20.5 13,20.95V23H11V20.95C6.83,20.5 3.5,17.17 3.05,13M12,5A7,7 0 0,0 5,12A7,7 0 0,0 12,19A7,7 0 0,0 19,12A7,7 0 0,0 12,5Z","mdiDelete":"M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z","mdiFileDocumentMultipleOutline":"M16 0H8C6.9 0 6 .9 6 2V18C6 19.1 6.9 20 8 20H20C21.1 20 22 19.1 22 18V6L16 0M20 18H8V2H15V7H20V18M4 4V22H20V24H4C2.9 24 2 23.1 2 22V4H4M10 10V12H18V10H10M10 14V16H15V14H10Z","mdiFormatListChecks":"M3,5H9V11H3V5M5,7V9H7V7H5M11,7H21V9H11V7M11,15H21V17H11V15M5,20L1.5,16.5L2.91,15.09L5,17.17L9.59,12.59L11,14L5,20Z","mdiGrid":"M10,4V8H14V4H10M16,4V8H20V4H16M16,10V14H20V10H16M16,16V20H20V16H16M14,20V16H10V20H14M8,20V16H4V20H8M8,14V10H4V14H8M8,8V4H4V8H8M10,14H14V10H10V14M4,2H20A2,2 0 0,1 22,4V20A2,2 0 0,1 20,22H4C2.92,22 2,21.1 2,20V4A2,2 0 0,1 4,2Z","mdiHistory":"M13.5,8H12V13L16.28,15.54L17,14.33L13.5,12.25V8M13,3A9,9 0 0,0 4,12H1L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3","mdiHome":"M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z","mdiInformationOutline":"M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z","mdiMapMarker":"M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5M12,2A7,7 0 0,0 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9A7,7 0 0,0 12,2Z","mdiMenu":"M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z","mdiMinusThick":"M20 14H4V10H20","mdiMonitorDashboard":"M21,16V4H3V16H21M21,2A2,2 0 0,1 23,4V16A2,2 0 0,1 21,18H14V20H16V22H8V20H10V18H3C1.89,18 1,17.1 1,16V4C1,2.89 1.89,2 3,2H21M5,6H14V11H5V6M15,6H19V8H15V6M19,9V14H15V9H19M5,12H9V14H5V12M10,12H14V14H10V12Z","mdiPlay":"M8,5.14V19.14L19,12.14L8,5.14Z","mdiPlus":"M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z","mdiPlusThick":"M20 14H14V20H10V14H4V10H10V4H14V10H20V14Z","mdiProgressCheck":"M13,2.03V2.05L13,4.05C17.39,4.59 20.5,8.58 19.96,12.97C19.5,16.61 16.64,19.5 13,19.93V21.93C18.5,21.38 22.5,16.5 21.95,11C21.5,6.25 17.73,2.5 13,2.03M11,2.06C9.05,2.25 7.19,3 5.67,4.26L7.1,5.74C8.22,4.84 9.57,4.26 11,4.06V2.06M4.26,5.67C3,7.19 2.25,9.04 2.05,11H4.05C4.24,9.58 4.8,8.23 5.69,7.1L4.26,5.67M15.5,8.5L10.62,13.38L8.5,11.26L7.44,12.32L10.62,15.5L16.56,9.56L15.5,8.5M2.06,13C2.26,14.96 3.03,16.81 4.27,18.33L5.69,16.9C4.81,15.77 4.24,14.42 4.06,13H2.06M7.1,18.37L5.67,19.74C7.18,21 9.04,21.79 11,22V20C9.58,19.82 8.23,19.25 7.1,18.37Z","mdiReload":"M2 12C2 16.97 6.03 21 11 21C13.39 21 15.68 20.06 17.4 18.4L15.9 16.9C14.63 18.25 12.86 19 11 19C4.76 19 1.64 11.46 6.05 7.05C10.46 2.64 18 5.77 18 12H15L19 16H19.1L23 12H20C20 7.03 15.97 3 11 3C6.03 3 2 7.03 2 12Z","mdiRestart":"M12,4C14.1,4 16.1,4.8 17.6,6.3C20.7,9.4 20.7,14.5 17.6,17.6C15.8,19.5 13.3,20.2 10.9,19.9L11.4,17.9C13.1,18.1 14.9,17.5 16.2,16.2C18.5,13.9 18.5,10.1 16.2,7.7C15.1,6.6 13.5,6 12,6V10.6L7,5.6L12,0.6V4M6.3,17.6C3.7,15 3.3,11 5.1,7.9L6.6,9.4C5.5,11.6 5.9,14.4 7.8,16.2C8.3,16.7 8.9,17.1 9.6,17.4L9,19.4C8,19 7.1,18.4 6.3,17.6Z","mdiScrewdriver":"M18,1.83C17.5,1.83 17,2 16.59,2.41C13.72,5.28 8,11 8,11L9.5,12.5L6,16H4L2,20L4,22L8,20V18L11.5,14.5L13,16C13,16 18.72,10.28 21.59,7.41C22.21,6.5 22.37,5.37 21.59,4.59L19.41,2.41C19,2 18.5,1.83 18,1.83M18,4L20,6L13,13L11,11L18,4Z","mdiSend":"M2,21L23,12L2,3V10L17,12L2,14V21Z","mdiSwapHorizontal":"M21,9L17,5V8H10V10H17V13M7,11L3,15L7,19V16H14V14H7V11Z","mdiTimelapse":"M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M16.24,7.76C15.07,6.58 13.53,6 12,6V12L7.76,16.24C10.1,18.58 13.9,18.58 16.24,16.24C18.59,13.9 18.59,10.1 16.24,7.76Z","mdiTranslate":"M12.87,15.07L10.33,12.56L10.36,12.53C12.1,10.59 13.34,8.36 14.07,6H17V4H10V2H8V4H1V6H12.17C11.5,7.92 10.44,9.75 9,11.35C8.07,10.32 7.3,9.19 6.69,8H4.69C5.42,9.63 6.42,11.17 7.67,12.56L2.58,17.58L4,19L9,14L12.11,17.11L12.87,15.07M18.5,10H16.5L12,22H14L15.12,19H19.87L21,22H23L18.5,10M15.88,17L17.5,12.67L19.12,17H15.88Z","mdiTune":"M3,17V19H9V17H3M3,5V7H13V5H3M13,21V19H21V17H13V15H11V21H13M7,9V11H3V13H7V15H9V9H7M21,13V11H11V13H21M15,9H17V7H21V5H17V3H15V9Z","mdiUpdate":"M21,10.12H14.22L16.96,7.3C14.23,4.6 9.81,4.5 7.08,7.2C4.35,9.91 4.35,14.28 7.08,17C9.81,19.7 14.23,19.7 16.96,17C18.32,15.65 19,14.08 19,12.1H21C21,14.08 20.12,16.65 18.36,18.39C14.85,21.87 9.15,21.87 5.64,18.39C2.14,14.92 2.11,9.28 5.62,5.81C9.13,2.34 14.76,2.34 18.27,5.81L21,3V10.12M12.5,8V12.25L16,14.33L15.28,15.54L11,13V8H12.5Z","mdiVideo3d":"M5,7H9A2,2 0 0,1 11,9V15A2,2 0 0,1 9,17H5V15H9V13H6V11H9V9H5V7M13,7H16A3,3 0 0,1 19,10V14A3,3 0 0,1 16,17H13V7M16,15A1,1 0 0,0 17,14V10A1,1 0 0,0 16,9H15V15H16Z","mdiWebcam":"M12,2A7,7 0 0,1 19,9A7,7 0 0,1 12,16A7,7 0 0,1 5,9A7,7 0 0,1 12,2M12,4A5,5 0 0,0 7,9A5,5 0 0,0 12,14A5,5 0 0,0 17,9A5,5 0 0,0 12,4M12,6A3,3 0 0,1 15,9A3,3 0 0,1 12,12A3,3 0 0,1 9,9A3,3 0 0,1 12,6M6,22A2,2 0 0,1 4,20C4,19.62 4.1,19.27 4.29,18.97L6.11,15.81C7.69,17.17 9.75,18 12,18C14.25,18 16.31,17.17 17.89,15.81L19.71,18.97C19.9,19.27 20,19.62 20,20A2,2 0 0,1 18,22H6Z","mdiWrench":"M22.7,19L13.6,9.9C14.5,7.6 14,4.9 12.1,3C10.1,1 7.1,0.6 4.7,1.7L9,6L6,9L1.6,4.7C0.4,7.1 0.9,10.1 2.9,12.1C4.8,14 7.5,14.5 9.8,13.6L18.9,22.7C19.3,23.1 19.9,23.1 20.3,22.7L22.6,20.4C23.1,20 23.1,19.3 22.7,19Z"};
-const VERSION_KEY = "voron0-dockprobe";       // Name des update_manager-Eintrags
+const VERSION_KEY = "voron0-dockprobe";       // name of the update_manager entry
 const SETTINGS = "probe_dock_settings.cfg";
-const BASE = location.pathname.replace(/[^/]*$/, "") || "/probe/";   // /probe/ oder /server/dockprobe/
+const BASE = location.pathname.replace(/[^/]*$/, "") || "/probe/";   // /probe/ or /server/dockprobe/
 const SELF_RE = /^\/(probe|server\/dockprobe)\/?$/;
-const SCHEMA = 2;                              // Version des Einstellungsformats
+const SCHEMA = 2;                              // version of the settings file format
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const store = {
   get(k, d) { try { const v = localStorage.getItem("dockprobe." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem("dockprobe." + k, JSON.stringify(v)); } catch { /* egal */ } },
+  set(k, v) { try { localStorage.setItem("dockprobe." + k, JSON.stringify(v)); } catch { /* ignore */ } },
 };
-let TH = "dark";                                // Mainsail-Modus: dark / light
+let TH = "dark";                                // Mainsail mode: dark / light
 
 // =====================================================================
-// Sprache – Deutsch ist der Quelltext, Englisch per Wörterbuch
+// Language – German is the source text, English via dictionary
 // =====================================================================
 const T_EN = {
-  // Rahmen
+  // Frame
   "Probe": "Probe", "Notaus": "Emergency Stop", "Sprache / Language": "Language / Sprache",
   "Klipper neu starten (FIRMWARE_RESTART)": "Restart Klipper (FIRMWARE_RESTART)",
   "Dashboard": "Dashboard", "Webcam": "Webcam", "Konsole": "Console", "Heightmap": "Heightmap", "G-Code Dateien": "G-Code Files",
@@ -394,7 +398,7 @@ const T_EN = {
   "bereit": "ready", "druckt": "printing", "getrennt": "disconnected", "Fehler": "error", "startet": "starting", "Shutdown": "shutdown",
   "Verbindung getrennt": "Connection lost", "Schneller Wechsel": "Fast switching",
   "Mainsail im Hintergrund vorladen – Seitenwechsel ohne Wartezeit": "Preload Mainsail in the background – switch pages without waiting",
-  // Hinweise
+  // Notices
   "Klipper: {m}": "Klipper: {m}",
   "Die voron0-dockprobe-Makros wurden in Klipper nicht gefunden. Installation prüfen (./install.sh --analyze).":
     "The voron0-dockprobe macros were not found in Klipper. Check the installation (./install.sh --analyze).",
@@ -409,7 +413,7 @@ const T_EN = {
     "The repo has local changes – updates are blocked. Reset it in the Update Manager (Recover).",
   "Neue Einstellungsfelder verfügbar. Unter Einstellungen einmal speichern, um sie zu ergänzen.":
     "New settings fields are available. Save once under Settings to add them.",
-  // Einrichtung
+  // Setup
   "Einrichtung": "Setup", "Zurücksetzen": "Reset", "Erledigt": "Done", "Starten": "Run",
   "Probe-Erkennung": "Probe detection", "Probe im Dock muss erkannt werden (TRIGGERED).": "Docked probe must be detected (TRIGGERED).",
   "Dock-Test": "Dock test", "3 Zyklen langsam andocken/ablegen.": "Attach/dock 3 times at low speed.",
@@ -436,7 +440,7 @@ const T_EN = {
     "Attaches and docks the probe several times and checks the probe pin each time. Ideal after dock changes – start slowly.",
   "Zyklen": "Cycles", "Test starten": "Start test", "Zyklus {i}/{n} ok": "Cycle {i}/{n} ok",
   "Dock-Test bestanden ({n} Zyklen).": "Dock test passed ({n} cycles).", "Dock-Test abgebrochen: {m}": "Dock test aborted: {m}",
-  // Bett & Schrauben
+  // Bed & screws
   "Bett & Schrauben": "Bed & screws", "Schrauben messen": "Measure screws", "vorne": "front", "Dock": "Dock", "Referenz": "Reference",
   "Fehler bei der Messung": "Measurement failed", "Schraube {n}": "Screw {n}", "vorher {v}": "before {v}",
   "Düse": "Nozzle", "Probe-Punkt": "Probe point", "Mesh-Bereich": "Mesh area", "Z0-Punkt": "Z0 point", "Anfahrweg": "Approach path",
@@ -448,10 +452,10 @@ const T_EN = {
   "Laden": "Load", "Löschen": "Delete", "aktiv": "active", "Kein Mesh geladen.": "No mesh loaded.", "Keine gespeicherten Profile.": "No saved profiles.",
   "Profil <b>{p}</b> · Spanne <b>{r} mm</b> · hinten oben": "Profile <b>{p}</b> · range <b>{r} mm</b> · rear on top",
   "Profil „{p}“ löschen?": "Delete profile “{p}”?",
-  // Kalibrierung
+  // Calibration
   "Kalibrierung": "Calibration", "Bett °C": "Bed °C", "Soak (min)": "Soak (min)", "Mesh-Profil": "Mesh profile",
   "Schrauben": "Screws", "Mesh": "Mesh", "Komplett-Kalibrierung": "Full calibration", "Z-Endstop (Papiertest)": "Z endstop (paper test)",
-  // Einstellungen
+  // Settings
   "Einstellungen": "Settings", "Probe-Pin": "Probe pin", "Geschwindigkeit": "Speed", "Klipper-Meldungen": "Klipper messages",
   "x: links der Düse negativ · y: hinter der Düse positiv · z: Auslösehöhe der Probe":
     "x: left of nozzle is negative · y: behind nozzle is positive · z: probe trigger height",
@@ -493,9 +497,9 @@ const T_EN = {
   "Position übernommen: X {x}  Y {y}": "Position applied: X {x}  Y {y}", "Neustart": "Restart",
   "Klipper per FIRMWARE_RESTART neu starten?": "Restart Klipper via FIRMWARE_RESTART?",
   "Sprache der Klipper-Meldungen auf {l} gesetzt.": "Klipper message language set to {l}.",
-  // Papiertest
+  // Paper test
   "Papiertest": "Paper test",
-  // Konsole
+  // Console
   "G-Code": "G-Code", "z. B. QUERY_PROBE": "e.g. QUERY_PROBE",
 };
 
@@ -507,7 +511,7 @@ function t(s, v) {
 }
 const dec = (s) => LANG === "de" ? String(s).replace(".", ",") : String(s);
 
-/* statische Texte übersetzen (nur Deutsch → Englisch nötig) */
+/* translate static texts (only German → English is needed) */
 function translateStatic(root = document.body) {
   if (LANG !== "en") return;
   const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), nodes = [];
@@ -526,7 +530,7 @@ function translateStatic(root = document.body) {
 }
 
 // =====================================================================
-// Vuetify-Bausteine (gleiche Klassen wie Mainsail, damit dessen CSS greift)
+// Vuetify building blocks (same classes as Mainsail so its CSS applies)
 // =====================================================================
 const icon = (n, cls = "", px = 0) => {
   const st = px ? ` style="font-size:${px}px;height:${px}px;width:${px}px;"` : "";
@@ -603,7 +607,7 @@ function panelHTML(o) {
     `</div></div></header><div class="panel-body"${closed ? ' style="display:none"' : ""}>${o.body}</div></div>`;
 }
 
-/* <x-…>-Platzhalter im HTML in Vuetify-Markup umwandeln */
+/* turn <x-…> placeholders in the HTML into Vuetify markup */
 function expand(root = document) {
   const attr = (el, n) => el.getAttribute(n);
   root.querySelectorAll("x-btn").forEach((el) => {
@@ -620,7 +624,7 @@ function expand(root = document) {
     el.outerHTML = checkHTML({ label: attr(el, "label"), id: attr(el, "id"), k: attr(el, "k"), checked: el.hasAttribute("checked") });
   });
   root.querySelectorAll("[data-icon]").forEach((el) => { el.outerHTML = icon(el.dataset.icon, el.dataset.iconCls || ""); });
-  // Panels zuletzt (innen ist schon umgewandelt)
+  // panels last (their content is already converted)
   [...root.querySelectorAll("x-panel")].reverse().forEach((el) => {
     const tools = el.querySelector(":scope > x-tools");
     const toolsHTML = tools ? tools.innerHTML : "";
@@ -630,7 +634,7 @@ function expand(root = document) {
   });
 }
 
-/* Breite der Legende im Rahmen (Vuetify: Label-Breite × 0,75 + 6) */
+/* width of the outline legend (Vuetify: label width × 0.75 + 6) */
 function fixLegends(root = document) {
   root.querySelectorAll(".v-text-field--outlined").forEach((f) => {
     const lab = f.querySelector(".v-label"), leg = f.querySelector("legend");
@@ -645,9 +649,9 @@ function setDis(el, dis) {
 }
 
 // =====================================================================
-// Mainsail-Theme übernehmen
+// Adopt the Mainsail theme
 // =====================================================================
-/* Farbvarianten wie Vuetify (CIELAB) */
+/* colour variants like Vuetify (CIELAB) */
 const LAB = (() => {
   const d = 6 / 29, f = (x) => x > d ** 3 ? Math.cbrt(x) : x / (3 * d * d) + 4 / 29, fi = (x) => x > d ? x ** 3 : 3 * d * d * (x - 4 / 29);
   const M = [[3.2406, -1.5372, -0.4986], [-0.9689, 1.8758, 0.0415], [0.0557, -0.204, 1.057]];
@@ -697,7 +701,7 @@ function applyMode(mode) {
   render();
 }
 
-/* Mainsails eigene Stylesheets (Vuetify, Mainsail) laden */
+/* load Mainsail's own stylesheets (Vuetify, Mainsail) */
 async function loadMainsailCss() {
   try {
     const html = await (await fetch("/", { cache: "no-store" })).text();
@@ -717,7 +721,7 @@ async function loadThemeFiles() {
   try {
     const r = await rpc("server.files.get_directory", { path: "config/.theme", extended: false });
     for (const f of r.files || []) themeFiles[f.filename.replace(/\.[^.]+$/, "").toLowerCase()] = `/server/files/config/.theme/${encodeURIComponent(f.filename)}?timestamp=${f.modified}`;
-  } catch { /* kein .theme-Ordner */ }
+  } catch { /* no .theme folder */ }
   if (themeFiles["custom"]) {
     const l = document.createElement("link"); l.rel = "stylesheet"; l.href = themeFiles["custom"]; document.head.appendChild(l);
   }
@@ -730,12 +734,12 @@ async function applyMainsailLook(ui) {
   applyColors(ui.primary || "#2196f3");
   applyMode(ui.mode || "dark");
   if (ui.navigationStyle === "iconsOnly") NAV.mini = true;
-  // Seitenleisten-Hintergrund
+  // sidebar background
   let bg = themeFiles["sidebar-background"];
   if (!bg) bg = theme === "vzbot" ? "/img/themes/sidebarBackground-vzbot.png" : (TH === "light" ? "/img/sidebar-background-light.svg" : "/img/sidebar-background.svg");
   $("nav-bg").style.backgroundImage = `url("${bg}")`;
   if (theme === "vzbot") { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "/css/themes/vzbot.css"; document.head.appendChild(l); }
-  // Logo (gleiche Reihenfolge wie Mainsail)
+  // logo (same lookup order as Mainsail)
   const logoColor = ui.logo || "#D41216";
   let url = themeFiles["sidebar-logo"] || "";
   if (!url && THEMES[theme]) url = `/img/themes/sidebarLogo-${theme}.svg`;
@@ -747,11 +751,11 @@ async function applyMainsailLook(ui) {
       if (url === "/img/logo.svg") svg = svg.replace(/fill="#d41216"/gi, `fill="${logoColor}"`);
       $("logo").innerHTML = svg;
     } else $("logo").innerHTML = `<img src="${url}" alt="">`;
-  } catch { /* ohne Logo */ }
+  } catch { /* no logo */ }
 }
 
 // =====================================================================
-// Navigation (Mainsails Seitenleiste)
+// Navigation (Mainsail's sidebar)
 // =====================================================================
 const NAV = { open: true, mini: false };
 const isMobile = () => window.innerWidth < 1264;
@@ -773,7 +777,7 @@ let lastAvail = null;
 async function buildNav(avail) {
   lastAvail = avail;
   let webcams = 0;
-  try { webcams = ((await rpc("server.webcams.list")).webcams || []).length; } catch { /* egal */ }
+  try { webcams = ((await rpc("server.webcams.list")).webcams || []).length; } catch { /* ignore */ }
   const items = [
     { t: t("Dashboard"), h: "/", i: "mdiMonitorDashboard", p: 10 },
     webcams && { t: t("Webcam"), h: "/cam", i: "mdiWebcam", p: 20 },
@@ -791,7 +795,7 @@ async function buildNav(avail) {
         const self = SELF_RE.test(e.href || "");
         items.push({ t: self ? t("Probe") : e.title, h: e.href, target: e.target, path: e.icon, p: e.position ?? 1000, active: self });
       }
-    } catch { /* ungültige navi.json */ }
+    } catch { /* invalid navi.json */ }
   }
   if (!items.some((x) => x.active)) items.push({ t: t("Probe"), h: BASE, i: "mdiCrosshairsGps", p: 45, active: true });
   items.sort((a, b) => a.p - b.p);
@@ -803,7 +807,7 @@ async function buildNav(avail) {
 }
 
 // =====================================================================
-// Verbindung zu Moonraker
+// Connection to Moonraker
 // =====================================================================
 const S = {};
 let CFG = {}, ws = null, rid = 0, busy = 0, klippy = "disconnected", components = [], installed = true;
@@ -901,7 +905,7 @@ function merge(o) {
 }
 
 // =====================================================================
-// Update-Anzeige (Moonraker update_manager)
+// Update notice (Moonraker update_manager)
 // =====================================================================
 let UPD = null;
 async function loadUpdate() {
@@ -925,7 +929,7 @@ async function runUpdate() {
 }
 
 // =====================================================================
-// G-Code, Antworten, Auswertungen
+// G-code, responses, evaluation
 // =====================================================================
 async function gcode(script) {
   log("> " + script, "cmd");
@@ -973,15 +977,15 @@ function drawAccuracy() {
   const s = ACC.samples, el = $("acc-chart");
   if (s.length < 2) { el.classList.add("hide"); return; }
   el.classList.remove("hide");
-  // Abweichung jeder Messung vom Mittelwert in µm – feste Mindestskala, damit eine
-  // gute Probe flach aussieht und Ausreißer sofort auffallen
+  // deviation of each sample from the mean in µm – fixed minimum scale so a
+  // good probe looks flat and outliers stand out
   const mean = s.reduce((a, b) => a + b, 0) / s.length;
   const dev = s.map((v) => (v - mean) * 1000);
   const lim = Math.max(10, Math.ceil(Math.max(...dev.map(Math.abs)) * 1.15 / 5) * 5);
   const W = el.clientWidth || 400, H = 150, pl = 34, pr = 10, pt = 18, pb = 18;
   const X = (i) => pl + (s.length === 1 ? 0 : (i / (s.length - 1)) * (W - pl - pr));
   const Y = (d) => pt + (1 - (d + lim) / (2 * lim)) * (H - pt - pb);
-  const band = Math.min(5, lim);                      // ±5 µm ≙ Spanne 0,01 mm („sehr gut“)
+  const band = Math.min(5, lim);                      // ±5 µm ≙ range 0.01 mm ("very good")
   let svg = `<text x="${pl}" y="11">${esc(t("Abweichung vom Mittelwert {m} mm (µm)", { m: dec(mean.toFixed(4)) }))}</text>`;
   svg += `<rect x="${pl}" y="${Y(band)}" width="${W - pl - pr}" height="${Y(-band) - Y(band)}" fill="var(--v-success-base)" fill-opacity=".1"/>`;
   for (const v of [lim, lim / 2, 0, -lim / 2, -lim]) {
@@ -1012,7 +1016,7 @@ function showOffset(z, relative) {
   if (b) b.onclick = () => { if (ED) { setField("z_offset", next); openTab("t-probe"); saveSettings(); } };
 }
 
-/* Schrauben: letzte Messung merken, um Fortschritt zu zeigen */
+/* screws: remember the previous measurement to show progress */
 function trackScrews(res) {
   const key = JSON.stringify(res);
   if (!res || !Object.keys(res).length) return;
@@ -1024,7 +1028,7 @@ function trackScrews(res) {
   if (worst <= 3) setStep("screws", true);
 }
 
-/* Papiertest: erledigt, wenn er mit ACCEPT beendet wurde (danach SAVE_CONFIG ausstehend) */
+/* paper test: done when finished with ACCEPT (SAVE_CONFIG pending afterwards) */
 let mpWas = false;
 function trackPaperTest(active) {
   if (mpWas && !active) setTimeout(() => { if ((S.configfile || {}).save_config_pending) setStep("paper", true); }, 800);
@@ -1033,7 +1037,7 @@ function trackPaperTest(active) {
 }
 
 // =====================================================================
-// Einrichtungs-Assistent
+// Setup checklist
 // =====================================================================
 const STEPS = [
   { id: "detect", title: "Probe-Erkennung", sub: "Probe im Dock muss erkannt werden (TRIGGERED).", g: "PROBE_STATUS" },
@@ -1079,7 +1083,7 @@ function draw() {
   const ready = klippy === "ready", pr = printing();
   setDis($("restart"), pr);
 
-  // Hinweise
+  // Notices
   const al = [];
   if (ready && !installed) al.push(alertHTML("error", "mdiAlertCircleOutline", esc(t("Die voron0-dockprobe-Makros wurden in Klipper nicht gefunden. Installation prüfen (./install.sh --analyze)."))));
   if (!ready) al.push(alertHTML("error", "mdiAlertCircleOutline", esc(t("Klipper: {m}", { m: (S.webhooks || {}).state_message || t({ disconnected: "getrennt", shutdown: "Shutdown", startup: "startet", error: "Fehler" }[klippy] || klippy) }))));
@@ -1097,7 +1101,7 @@ function draw() {
   const alHTML = al.join("");
   if ($("alerts").dataset.h !== alHTML) { $("alerts").innerHTML = alHTML; $("alerts").dataset.h = alHTML; bindAlerts(); }
 
-  // Probe-Status
+  // probe state
   const att = (S["gcode_macro _PROBE_STATE"] || {}).attached;
   $("s-probe").innerHTML = att === undefined ? "–" : att ? `<span class="chip warning--text">${esc(t("am Toolhead"))}</span>` : `<span class="chip success--text">${esc(t("im Dock"))}</span>`;
   const lq = (S.probe || {}).last_query;
@@ -1114,7 +1118,7 @@ function draw() {
   document.querySelectorAll(".pos").forEach((b) => setDis(b, !homed || !pos));
   setDis($("ed-save"), !ED || !ready || pr || busy > 0);
 
-  // Papiertest-Dialog
+  // paper test dialog
   const mp = S.manual_probe || {};
   $("mp").classList.toggle("hide", !mp.is_active);
   $("overlay").classList.toggle("hide", !mp.is_active && $("modal").classList.contains("hide"));
@@ -1173,7 +1177,7 @@ function drawBed() {
   const pos = livePos(), homed = ((S.toolhead || {}).homed_axes || "").length === 3;
   const colOk = "var(--v-success-base)", colWarn = "var(--v-warning-base)", colErr = "var(--v-error-base)", colPri = "var(--v-primary-base)";
 
-  // Die Probe sitzt im Dock bei Düsenposition + Offset – meist außerhalb des Druckbereichs
+  // the docked probe sits at nozzle position + offset – usually outside the print area
   const hasDock = v.dock_x !== undefined && v.dock_y !== undefined;
   const dpx = hasDock ? +v.dock_x + xo : 0, dpy = hasDock ? +v.dock_y + yo : 0;
   let lx = xmin, hx = xmax, ly = ymin, hy = ymax;
@@ -1191,11 +1195,11 @@ function drawBed() {
     svg += `<path d="M${zx - 3} ${zy}H${zx + 3}M${zx} ${zy - 3}V${zy + 3}" stroke="currentColor" stroke-opacity=".5" stroke-width=".8"/><text x="${zx + 4}" y="${zy - 2}" opacity=".5" style="font-size:5px">Z0</text>`;
   }
   if (hasDock) {
-    // Weg der Probe beim Andocken: Parkposition → Vorposition → Dock-Y → ins Dock
+    // probe path when attaching: park position → staging → dock Y → into the dock
     const path = [[+v.safe_x, +v.safe_y], [+v.dock_x + +v.approach_dx, +v.staging_y], [+v.dock_x + +v.approach_dx, +v.dock_y], [+v.dock_x, +v.dock_y]]
       .filter((q) => !q.some(isNaN)).map((q) => `${X(q[0] + xo).toFixed(1)},${Y(q[1] + yo).toFixed(1)}`).join(" ");
     if (path) svg += `<polyline points="${path}" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width=".7" stroke-dasharray="1.5 1.5"/>`;
-    // Dock-Halter, zur Anfahrseite (rechts) offen
+    // dock holder, open towards the approach side (right)
     const dx = X(dpx), dy = Y(dpy), w = Math.max(9 * sc, 9), h = Math.max(11 * sc, 11);
     svg += `<rect x="${dx - w / 2}" y="${dy - h / 2}" width="${w}" height="${h}" rx="1.5" fill="currentColor" fill-opacity=".08"/>` +
       `<path d="M${dx + w / 2} ${dy - h / 2}H${dx - w / 2}V${dy + h / 2}H${dx + w / 2}" fill="none" stroke="currentColor" stroke-opacity=".8" stroke-width="1.4" stroke-linejoin="round"/>` +
@@ -1214,7 +1218,7 @@ function drawBed() {
     svg += `<text x="${tx}" y="${ty}" text-anchor="middle">${esc(screwLabel(s.name))}</text>`;
     if (label) svg += `<text x="${tx}" y="${ty + 7}" text-anchor="middle" style="fill:${col};font-weight:700">${esc(label)}</text>`;
   }
-  // Düse und Probe (live)
+  // nozzle and probe (live)
   let probeAt = null;
   if (att === true && pos && homed) probeAt = [pos[0] + xo, pos[1] + yo];
   else if (att === false && hasDock) probeAt = [dpx, dpy];
@@ -1230,7 +1234,7 @@ function drawBed() {
   $("bed").setAttribute("viewBox", `0 0 ${((hx - lx) * sc + 2 * pad).toFixed(1)} ${((hy - ly) * sc + 2 * pad + 6).toFixed(1)}`);
   $("bed").innerHTML = svg;
 
-  // Zustand in Textform
+  // state as text
   let state;
   if (att === true) state = `<span class="chip warning--text">${esc(t("am Toolhead"))}</span>` + (probeAt ? ` <span class="ml-2 mono small">X ${dec(probeAt[0].toFixed(1))}  Y ${dec(probeAt[1].toFixed(1))}</span>` : "");
   else if (att === false) state = `<span class="chip success--text">${esc(t("im Dock"))}</span>`;
@@ -1243,7 +1247,7 @@ function drawBed() {
     `<span><i style="border:1px dashed currentColor;border-radius:0"></i>${esc(t("Mesh-Bereich"))}</span>`;
   if ($("bed-legend").dataset.k !== LANG) { $("bed-legend").innerHTML = lg; $("bed-legend").dataset.k = LANG; }
 
-  // Tabelle mit Vergleich zur vorherigen Messung
+  // table with comparison to the previous measurement
   const hist = store.get("screwHist", []), prevRes = hist.length > 1 ? hist[0] : null;
   const rows = screwList().map((s) => {
     const r = res[s.key];
@@ -1272,7 +1276,7 @@ function drawMesh() {
     for (let i = m.length - 1; i >= 0; i--) html += "<tr>" + m[i].map((z) => `<td style="background:${color(z)}">${dec(z.toFixed(3))}</td>`).join("") + "</tr>";
     $("mesh-tbl").innerHTML = html + `</table><div class="heat-legend"><span>${dec(lo.toFixed(3))}</span><span>0</span><span>+${dec(hi.toFixed(3))}</span></div>`;
   }
-  // Profile
+  // profiles
   const profs = Object.keys(bm.profiles || {}).sort();
   const lock = klippy !== "ready" || printing() || busy > 0;
   const key = JSON.stringify([profs, bm.profile_name, lock, LANG, TH]);
@@ -1289,7 +1293,7 @@ function drawMesh() {
 }
 
 // =====================================================================
-// Verfahren (wie Mainsails Toolhead-Panel)
+// Jog (like Mainsail's toolhead panel)
 // =====================================================================
 function buildJog() {
   const row = (ax, steps) => `<div class="_btn-group v-item-group theme--${TH} mb-2">` +
@@ -1299,7 +1303,14 @@ function buildJog() {
   $("jog").innerHTML = row("X", [-10, -1, -0.1, 0.1, 1, 10]) + row("Y", [-10, -1, -0.1, 0.1, 1, 10]) + row("Z", [-1, -0.1, 0.1, 1]);
 }
 
+function mpHint() {
+  const k = (x) => `<span class="kbd">${x}</span>`;
+  const up = LANG === "de" ? "Bild↑" : "PgUp", dn = LANG === "de" ? "Bild↓" : "PgDn";
+  $("mp-hint").innerHTML = `${k("↑")} ${k("↓")} ±${dec("0.05")} · ${k("Shift")} ±${dec("0.01")} · ${k(up)} ${k(dn)} ±${dec("0.1")}`;
+}
+
 function buildPaperButtons() {
+  mpHint();
   const offs = [0.005, 0.01, 0.05, 0.1, 1];
   $("mp-up").innerHTML = offs.map((o, i) => btnHTML({ text: `+${dec(o)}`, cls: "mpb flex-grow-1 px-1", g: `TESTZ Z=${o}`, icon: i === 0 ? "mdiArrowExpandUp" : "" })).join("");
   $("mp-down").innerHTML = offs.map((o, i) => btnHTML({ text: `−${dec(o)}`, cls: "mpb flex-grow-1 px-1", g: `TESTZ Z=-${o}`, icon: i === 0 ? "mdiArrowCollapseDown" : "" })).join("");
@@ -1318,7 +1329,7 @@ const mpKeysOn = () => document.addEventListener("keydown", mpKey);
 const mpKeysOff = () => document.removeEventListener("keydown", mpKey);
 
 // =====================================================================
-// Einstellungs-Editor (liest/schreibt probe_dock_settings.cfg)
+// Settings editor (reads/writes probe_dock_settings.cfg)
 // =====================================================================
 let ED = null;   // { text, printerCfg, zSource, base, model, schema }
 const fmt = (v) => { const s = (Math.round(Number(v) * 1000) / 1000).toFixed(3).replace(/\.?0+$/, ""); return s === "-0" || s === "" ? "0" : s; };
@@ -1439,7 +1450,7 @@ function drawScrewEditor() {
   render();
 }
 
-/* gleiche Rechnung wie scripts/installer.py → compute() */
+/* same calculation as scripts/installer.py → compute() */
 function compute(m) {
   const { xmin, xmax, ymin, ymax } = travel();
   const xo = m.x_offset, yo = m.y_offset, g = m.margin, r1 = (v) => Math.round(v * 10) / 10;
@@ -1486,7 +1497,7 @@ function updatePreview() {
   });
 }
 
-/* ---- Datei gezielt ändern, Kommentare und eigene Zeilen bleiben erhalten ---- */
+/* ---- edit the file in place; comments and custom lines are preserved ---- */
 function secRange(L, name) {
   const s = L.findIndex((l) => { const h = l.match(/^\[([^\]]+)\]/); return h && h[1].trim().toLowerCase() === name; });
   if (s < 0) return null;
@@ -1623,7 +1634,7 @@ function readEditor() {
   });
 }
 
-/* Sprache der Klipper-Meldungen sofort und dauerhaft umstellen (ohne Neustart) */
+/* switch the Klipper message language immediately and persistently (no restart) */
 async function syncMacroLang(l) {
   if (!ED || ED.model.mlang === l || printing()) return;
   try {
@@ -1640,7 +1651,7 @@ async function syncMacroLang(l) {
 }
 
 // =====================================================================
-// Dialog, Snackbar, Konsole, Tabs
+// Dialog, snackbar, console, tabs
 // =====================================================================
 function dialog(title, html, okText) {
   return new Promise((res) => {
@@ -1680,9 +1691,9 @@ function moveSlider() {
 }
 
 // =====================================================================
-// Schneller Seitenwechsel: Mainsail läuft im Hintergrund (unsichtbarer iframe)
-// und wird beim Klick auf einen Menüpunkt nur eingeblendet – ohne Neustart.
-// Abschalten: /probe/?shell=0 oder Schalter in der Seitenleiste.
+// Fast page switching: Mainsail runs in the background (hidden iframe) and is
+// only revealed when a menu entry is clicked – no re-initialisation.
+// Disable with ?shell=0 or the switch in the sidebar.
 // =====================================================================
 const SHELL = {
   frame: null, ready: false, visible: false,
@@ -1707,7 +1718,7 @@ function hookFrame() {
   const doc = frameDoc();
   if (!doc || doc.__dockprobeHooked) return;
   doc.__dockprobeHooked = true;
-  // Klicks auf "Probe" in Mainsails Menü abfangen → Probe-Seite einblenden
+  // intercept clicks on "Probe" in Mainsail's menu → show the probe page
   doc.addEventListener("click", (e) => {
     const a = e.target.closest && e.target.closest("a[href]");
     if (!a) return;
@@ -1716,7 +1727,7 @@ function hookFrame() {
       e.preventDefault(); e.stopPropagation(); showProbe(true);
     }
   }, true);
-  // bereit, sobald Mainsails Menü steht
+  // ready as soon as Mainsail's menu exists
   const poll = setInterval(() => {
     const d = frameDoc();
     if (!d) return clearInterval(poll);
@@ -1745,7 +1756,7 @@ function showMainsail(path, push = true) {
   if (push) history.pushState({ dockprobe: "mainsail" }, "", path);
   clearInterval(SHELL.titleT);
   SHELL.titleT = setInterval(() => { const d = frameDoc(); if (SHELL.visible && d && d.title) document.title = d.title; }, 1500);
-  setTimeout(() => { const d = frameDoc(); if (d && d.title) document.title = d.title; window.dispatchEvent(new Event("resize")); try { f.contentWindow.dispatchEvent(new Event("resize")); } catch { /* egal */ } }, 50);
+  setTimeout(() => { const d = frameDoc(); if (d && d.title) document.title = d.title; window.dispatchEvent(new Event("resize")); try { f.contentWindow.dispatchEvent(new Event("resize")); } catch { /* ignore */ } }, 50);
   f.focus();
 }
 
@@ -1753,7 +1764,7 @@ function showProbe(push = true) {
   if (!SHELL.visible) return;
   const f = SHELL.frame;
   f.style.visibility = "hidden"; f.style.pointerEvents = "none"; f.setAttribute("aria-hidden", "true"); f.inert = true;
-  try { f.contentWindow.blur(); } catch { /* egal */ }
+  try { f.contentWindow.blur(); } catch { /* ignore */ }
   window.focus();
   SHELL.visible = false;
   clearInterval(SHELL.titleT);
@@ -1763,9 +1774,9 @@ function showProbe(push = true) {
   render();
 }
 
-/* der unsichtbare iframe darf den Fokus nicht an sich ziehen (z. B. Autofokus in Mainsail) */
+/* the hidden iframe must not steal focus (e.g. autofocus in Mainsail) */
 window.addEventListener("blur", () => setTimeout(() => {
-  if (!SHELL.visible && SHELL.frame && document.activeElement === SHELL.frame) { try { SHELL.frame.contentWindow.blur(); } catch { /* egal */ } window.focus(); document.body.focus(); }
+  if (!SHELL.visible && SHELL.frame && document.activeElement === SHELL.frame) { try { SHELL.frame.contentWindow.blur(); } catch { /* ignore */ } window.focus(); document.body.focus(); }
 }, 0));
 
 window.addEventListener("popstate", () => {
@@ -1773,7 +1784,7 @@ window.addEventListener("popstate", () => {
   else showMainsail(location.pathname + location.search, false);
 });
 
-/* Menü- und Logo-Links dieser Seite über den Hintergrund-Mainsail öffnen */
+/* open menu and logo links of this page via the background Mainsail */
 document.addEventListener("click", (e) => {
   const a = e.target.closest("#navlist a[href], .topbar a[href]");
   if (!a || a.target === "_blank" || e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
@@ -1786,7 +1797,7 @@ document.addEventListener("click", (e) => {
 }, true);
 
 // =====================================================================
-// Sprache, Start
+// Language, start
 // =====================================================================
 function showLangBtn() {
   $("lang-t").textContent = LANG.toUpperCase();
@@ -1799,7 +1810,7 @@ function detectLang(mainsailLang) {
 function setLang(l, persist) {
   if (persist) store.set("lang", l);
   if (l === LANG) { showLangBtn(); return; }
-  if (LANG === "en") return location.reload();   // zurück auf Deutsch: neu laden
+  if (LANG === "en") return location.reload();   // back to German: reload
   LANG = l;
   document.documentElement.lang = l;
   translateStatic();
@@ -1875,7 +1886,7 @@ document.addEventListener("focusout", (e) => {
   f.classList.remove("v-input--is-focused", "primary--text"); f.querySelector(".v-label")?.classList.remove("primary--text");
 });
 
-/* Panels wie Mainsails Dashboard auf 1–3 Spalten verteilen */
+/* distribute panels over 1–3 columns like Mainsail's dashboard */
 const LAYOUTS = {
   1: [["setup", "probe", "bed", "mesh", "cal", "settings", "docktest"]],
   2: [["setup", "probe", "docktest", "cal"], ["bed", "mesh", "settings"]],
@@ -1928,7 +1939,7 @@ function wire() {
 
 (async function start() {
   if (window.top !== window) {
-    try { if (window.top.dockprobeShowProbe) { window.top.dockprobeShowProbe(); history.back(); return; } } catch { /* fremde Seite */ }
+    try { if (window.top.dockprobeShowProbe) { window.top.dockprobeShowProbe(); history.back(); return; } } catch { /* foreign page */ }
   }
   expand();
   buildJog(); buildPaperButtons();
@@ -1936,7 +1947,7 @@ function wire() {
   NAV.open = !isMobile(); layoutNav(); layoutCols();
   const ok = await loadMainsailCss();
   if (!ok) applyColors("#2196f3");
-  setTimeout(reveal, 4000);          // spätestens nach 4 s anzeigen
+  setTimeout(reveal, 4000);          // reveal after 4 s at the latest
   connect();
 })();
 </script>

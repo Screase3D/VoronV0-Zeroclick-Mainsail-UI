@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""voron0-dockprobe – Analyse, Installation und Deinstallation.
+"""voron0-dockprobe – analysis, installation and removal.
 
-Wird über ./install.sh aufgerufen. Benötigt nur die Python-Standardbibliothek.
+Called via ./install.sh. Needs only the Python standard library.
+
+SPDX-License-Identifier: GPL-3.0-or-later
 """
 import argparse
 import datetime
@@ -48,7 +50,7 @@ CONFLICT_MACROS = {
     "probe_status", "_probe_vars", "_probe_state",
 }
 
-# Düsenpositionen über den Schrauben (Voron V0.2 mit Kirigami, gemessen)
+# nozzle positions above the bed screws (Voron V0.2 with Kirigami bed, measured)
 DEFAULT_SCREWS = [
     (58.5, 4.0, "vorne mittig"),
     (4.5, 112.0, "hinten links"),
@@ -65,7 +67,7 @@ OPTION_RE = re.compile(r"^([A-Za-z0-9_]+)\s*[:=]\s*(.*?)\s*$")
 
 
 # ---------------------------------------------------------------------------
-# Ausgabe
+# Output
 # ---------------------------------------------------------------------------
 USE_COLOR = sys.stdout.isatty()
 
@@ -95,7 +97,7 @@ def info(text):
 
 
 def fmt(v):
-    """Zahl ohne überflüssige Nachkommastellen."""
+    """Number without superfluous decimals."""
     if isinstance(v, bool):
         return str(v)
     v = round(float(v), 3)
@@ -108,7 +110,7 @@ def num(s):
 
 
 # ---------------------------------------------------------------------------
-# Klipper-Config lesen
+# Reading the Klipper config
 # ---------------------------------------------------------------------------
 class Section:
     def __init__(self, name, file, start):
@@ -205,7 +207,7 @@ def _parse_file(path, ctx, depth=0, main=False):
 
 
 def merged(ctx, name, only=None):
-    """Optionen einer Section über alle Vorkommen (spätere gewinnen)."""
+    """Options of a section across all occurrences (later ones win)."""
     out = {}
     for s in ctx["sections"]:
         if s.lname == name.lower() and (only is None or only(s)):
@@ -218,7 +220,7 @@ def has_section(ctx, name):
 
 
 # ---------------------------------------------------------------------------
-# Umgebung erkennen
+# Detecting the environment
 # ---------------------------------------------------------------------------
 def detect(args):
     home = Path.home()
@@ -286,7 +288,7 @@ def git_branch():
 
 
 # ---------------------------------------------------------------------------
-# Analyse
+# Analysis
 # ---------------------------------------------------------------------------
 def analyze(env):
     cfg = env["cfg"]
@@ -300,7 +302,7 @@ def analyze(env):
 
     own = lambda s: s.basename in OWN_FILES  # noqa: E731
 
-    # Konflikte: Sections/Makros in fremden Dateien
+    # conflicts: sections/macros in other files
     conflicts = []
     for s in ctx["sections"]:
         if own(s):
@@ -308,17 +310,17 @@ def analyze(env):
         ln = s.lname
         if ln in CONFLICT_SECTIONS or (ln.startswith("gcode_macro ") and ln[12:].strip() in CONFLICT_MACROS):
             conflicts.append(s)
-    # KAMP Adaptive Meshing: wird über die Include-Zeile deaktiviert, nicht in der KAMP-Datei
+    # KAMP Adaptive Meshing: disabled via its include line, not inside the KAMP file
     A["kamp_adaptive"] = [inc for inc in ctx["includes"] if "adaptive_meshing" in inc["pattern"].lower()]
     kamp_files = {os.path.realpath(f) for inc in A["kamp_adaptive"] for f in inc["matches"]}
     A["conflicts"] = [s for s in conflicts if os.path.realpath(s.file) not in kamp_files]
 
-    # Includes unseres Pakets in printer.cfg
+    # our includes in printer.cfg
     pc_lines = env["printer_cfg"].read_text(errors="replace").splitlines()
     A["has_inc_logic"] = any(re.match(rf"^\[include\s+{re.escape(LOGIC_NAME)}\s*\]", l) for l in pc_lines)
     A["has_inc_settings"] = any(re.match(rf"^\[include\s+{re.escape(SETTINGS_NAME)}\s*\]", l) for l in pc_lines)
 
-    # Mechanik
+    # mechanics
     sx, sy, sz = merged(ctx, "stepper_x"), merged(ctx, "stepper_y"), merged(ctx, "stepper_z")
 
     def rng(st, default_max):
@@ -342,7 +344,7 @@ def analyze(env):
         A["z_endstop_max"] = None
     A["exclude_object"] = has_section(ctx, "exclude_object")
 
-    # Probe-Werte (alle Quellen, eigene Dateien zuletzt = höchste Priorität)
+    # probe values (all sources; our own files last = highest priority)
     probe = merged(ctx, "probe")
     A["probe"] = probe
     A["autosave"] = ctx["autosave"]
@@ -431,7 +433,7 @@ def report(env, A):
 
 
 # ---------------------------------------------------------------------------
-# Werte abfragen und berechnen
+# Asking for values and calculating
 # ---------------------------------------------------------------------------
 class Asker:
     def __init__(self, yes):
@@ -485,7 +487,7 @@ def opt_num(d, key, default):
 
 
 def gather(env, A, asker, reconfigure):
-    """Fragt die Werte ab. Vorgaben kommen aus der bestehenden Config."""
+    """Ask for the values. Defaults come from the existing config."""
     p, v, au = A["probe"], A["vars"], A["autosave"].get("probe", {})
     head("Einstellungen")
     info("Enter übernimmt den Vorschlag in [Klammern]. Dezimal mit Punkt oder Komma.")
@@ -546,12 +548,12 @@ def gather(env, A, asker, reconfigure):
 
 
 def compute(V, A):
-    """Mesh-Grenzen, Schrauben-Düsenpositionen und Referenzpunkt berechnen."""
+    """Calculate mesh bounds, screw nozzle positions and the reference point."""
     (xmin, xmax), (ymin, ymax) = A["x_range"], A["y_range"]
     xo, yo, m = V["x_offset"], V["y_offset"], V["mesh_margin"]
     warnings = []
 
-    # Bereich, den die Probe auf dem Bett erreicht (Bett = Verfahrbereich)
+    # area the probe can reach on the bed (bed = travel range)
     pxl, pxh = max(xmin, xmin + xo), min(xmax, xmax + xo)
     pyl, pyh = max(ymin, ymin + yo), min(ymax, ymax + yo)
     mesh_min = (round(pxl + m, 1), round(pyl + m, 1))
@@ -559,7 +561,7 @@ def compute(V, A):
     if mesh_min[0] >= mesh_max[0] or mesh_min[1] >= mesh_max[1]:
         raise SystemExit(tr("Mesh-Bereich ist leer – Offsets oder Randabstand prüfen."))
 
-    # Düsenbereich, der beim Mesh abgedeckt wird
+    # nozzle area covered while meshing
     nxl, nxh = mesh_min[0] - xo, mesh_max[0] - xo
     nyl, nyh = mesh_min[1] - yo, mesh_max[1] - yo
     cx, cy = (xmin + xmax) / 2, (ymin + ymax) / 2
@@ -617,7 +619,7 @@ def render_settings(V, R, A):
         screw_thread=V["screw_thread"],
         lang=V["lang"],
     )
-    # Nur Kommentare übersetzen, nie Werte (z. B. Schraubennamen)
+    # translate comments only, never values (e.g. screw names)
     tl = []
     for line in text.splitlines():
         if (line.startswith("#") and not line.startswith("#@")) or line.startswith("description:"):
@@ -627,8 +629,8 @@ def render_settings(V, R, A):
             line = tr(head_) + sep + tr(tail) if "action_respond_info" in line else head_ + sep + tr(tail)
         tl.append(line)
     text = "\n".join(tl) + "\n"
-    # Optionen, die im SAVE_CONFIG-Block stehen, dürfen nicht zusätzlich in einer
-    # eingebundenen Datei stehen – sonst schlägt jedes SAVE_CONFIG fehl.
+    # Options stored in the SAVE_CONFIG block must not also appear in an
+    # included file – otherwise every SAVE_CONFIG fails.
     out, sect = [], None
     for line in text.splitlines():
         m = SECTION_RE.match(line)
@@ -643,7 +645,7 @@ def render_settings(V, R, A):
 
 
 # ---------------------------------------------------------------------------
-# Datei-Operationen
+# File operations
 # ---------------------------------------------------------------------------
 class Ops:
     def __init__(self, dry, use_sudo=True):
@@ -709,7 +711,7 @@ def backup(env, ops):
 
 
 def comment_sections(sections, ops):
-    """Sections in ihrer Datei mit MARK auskommentieren (Zeilenzahl bleibt gleich)."""
+    """Comment out sections in their file with MARK (line count stays the same)."""
     by_file = {}
     for s in sections:
         by_file.setdefault(s.file, []).append(s)
@@ -772,14 +774,14 @@ def remove_includes(printer_cfg, ops):
 
 # ---- nginx ----------------------------------------------------------------
 def nginx_snippet():
-    return (f"# voron0-dockprobe – Kalibrier-Oberfläche (automatisch erzeugt)\n"
+    return (f"# voron0-dockprobe – calibration UI (generated automatically)\n"
             f"location = /probe {{ return 301 /probe/; }}\n"
             f"location ^~ /probe/ {{\n"
             f"    alias {WEB_DIR}/;\n"
             f"    index index.html;\n"
             f"    add_header Cache-Control \"no-cache\";\n"
             f"}}\n"
-            f"# Unter /server/ greift Mainsails Service-Worker nicht ein (wichtig bei https)\n"
+            f"# Mainsail's service worker does not intercept /server/ (matters for https)\n"
             f"location = /server/dockprobe {{ return 301 /server/dockprobe/; }}\n"
             f"location ^~ /server/dockprobe/ {{\n"
             f"    alias {WEB_DIR}/;\n"
@@ -838,7 +840,7 @@ def nginx_remove(env, ops):
     ok("nginx-Eintrag entfernt")
 
 
-# ---- Mainsail-Menü ------------------------------------------------------------
+# ---- Mainsail menu ------------------------------------------------------------
 def navi_install(env, ops):
     navi = env["cfg"] / ".theme" / "navi.json"
     entries = []
@@ -976,12 +978,12 @@ def restart_services(restart_moonraker, ops):
 
 
 # ---------------------------------------------------------------------------
-# Abläufe
+# Procedures
 # ---------------------------------------------------------------------------
 def do_install(env, A, args, ops, asker):
     cfg = env["cfg"]
 
-    # Bestehende Einstellungen behalten?
+    # keep existing settings?
     write_settings = True
     if A["settings_exists"] and not args.reconfigure:
         write_settings = asker.confirm(f"{SETTINGS_NAME} existiert – Werte neu abfragen und Datei neu erzeugen?", False)
@@ -1052,7 +1054,7 @@ def do_install(env, A, args, ops, asker):
         ops.write(cfg / SETTINGS_NAME, render_settings(V, R, A))
         ok(f"{SETTINGS_NAME} geschrieben")
 
-    # Konflikte (nur innerhalb des Config-Ordners anfassen)
+    # conflicts (only touch files inside the config folder)
     inside = [s for s in A["conflicts"] if os.path.realpath(s.file).startswith(str(cfg) + os.sep)]
     outside = [s for s in A["conflicts"] if s not in inside]
     if inside:
