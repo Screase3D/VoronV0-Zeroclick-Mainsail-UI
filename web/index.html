@@ -408,7 +408,7 @@ body.no-mainsail .v-btn { background: #333; color: #fff; border: 0; border-radiu
 
   <!-- Dialog -->
   <div id="modal" class="v-dialog__content hide" style="z-index:204;">
-    <div class="v-dialog v-dialog--active" style="max-width:560px;">
+    <div class="v-dialog v-dialog--active" style="max-width:560px;outline:none;" tabindex="-1">
       <x-panel p="dlg" icon="mdiInformationOutline" title="" fixed>
         <x-tools><x-btn variant="icon" id="m-x" icon="mdiCloseThick"></x-btn></x-tools>
         <div class="v-card__text pt-4" id="m-body"></div>
@@ -997,7 +997,22 @@ async function subscribe() {
   if (!HIST.loaded) histLoad(); else histSync();
 }
 
-function setKlippy(st) { klippy = st; render(); }
+/* back from the background (phone screen off, other tab): refresh the state that drives
+   dialogs – the paper test may have been finished elsewhere meanwhile. A socket that died
+   silently while sleeping does not answer: close it, the normal reconnect takes over. */
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden || !ws || ws.readyState !== 1 || klippy !== "ready") return;
+  const dead = setTimeout(() => { try { ws.close(); } catch { /* ignore */ } }, 8000);
+  rpc("printer.objects.query", { objects: { manual_probe: null, "gcode_macro _PROBE_STATE": null, configfile: ["save_config_pending"],
+    print_stats: ["state"], toolhead: ["homed_axes", "position"], webhooks: ["state", "state_message"] } })
+    .then((r) => merge(r.status)).catch(() => {}).finally(() => clearTimeout(dead));
+});
+
+function setKlippy(st) {
+  klippy = st;
+  if (st !== "ready") { mpKeysOff(); mpWas = false; }
+  render();
+}
 function merge(o) {
   for (const k in o) S[k] = Object.assign(S[k] || {}, o[k]);
   if (o.screws_tilt_adjust && o.screws_tilt_adjust.results) trackScrews(o.screws_tilt_adjust.results);
@@ -1227,8 +1242,9 @@ function draw() {
 
   // paper test dialog
   const mp = S.manual_probe || {};
-  $("mp").classList.toggle("hide", !mp.is_active);
-  $("overlay").classList.toggle("hide", !mp.is_active && $("modal").classList.contains("hide"));
+  const mpOn = ready && !!mp.is_active;          // a stale paper test must not block the page after a Klipper error
+  $("mp").classList.toggle("hide", !mpOn);
+  $("overlay").classList.toggle("hide", !mpOn && $("modal").classList.contains("hide"));
   const z3 = (v) => v == null ? "??????" : dec(Number(v).toFixed(3));
   $("mp-z").textContent = z3(mp.z_position); $("mp-lo").textContent = z3(mp.z_position_lower); $("mp-hi").textContent = z3(mp.z_position_upper);
 
@@ -2177,19 +2193,33 @@ async function syncMacroLang(l) {
 // =====================================================================
 // Dialog, snackbar, console, tabs
 // =====================================================================
+let DLG = null;   // close function of the open dialog
 function dialog(title, html, okText) {
+  if (DLG) DLG(false);                     // only one dialog at a time – never leave a promise hanging
   return new Promise((res) => {
-    const m = $("modal");
+    const m = $("modal"), back = document.activeElement;
     m.querySelector(".subheading").textContent = title;
     $("m-body").innerHTML = html;
-    $("m-yes").querySelector("span:last-child").textContent = okText || "OK";
+    $("m-yes").querySelector(".v-btn__content").textContent = okText || "OK";
     $("m-no").classList.toggle("hide", !okText);
     m.classList.remove("hide"); $("overlay").classList.remove("hide");
-    const close = (v) => { m.classList.add("hide"); render(); res(v); };
+    const close = (v) => {
+      if (DLG !== close) return;
+      DLG = null;
+      m.classList.add("hide");
+      // hide the grey layer right away instead of waiting for the next render
+      if ($("mp").classList.contains("hide")) $("overlay").classList.add("hide");
+      try { if (back && back.focus && document.contains(back)) back.focus({ preventScroll: true }); } catch { /* ignore */ }
+      render(); res(v);
+    };
+    DLG = close;
     $("m-yes").onclick = () => close(!!okText);
     $("m-no").onclick = $("m-x").onclick = () => close(false);
+    // focus into the dialog: Enter/Space must not re-trigger the button behind it
+    m.querySelector(".v-dialog").focus({ preventScroll: true });
   });
 }
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && DLG) { e.preventDefault(); DLG(false); } });
 let snackT = 0;
 function snack(txt) {
   $("snack-t").textContent = txt; $("snack").style.display = "";
@@ -2248,7 +2278,9 @@ function hookFrame() {
     if (!a) return;
     let u; try { u = new URL(a.getAttribute("href"), location.origin); } catch { return; }
     if (u.origin === location.origin && SELF_RE.test(u.pathname) && a.target !== "_blank") {
-      e.preventDefault(); e.stopPropagation(); showProbe(true);
+      e.preventDefault(); e.stopPropagation();
+      closeFrameDrawer(a);
+      showProbe(true);
     }
   }, true);
   // ready as soon as Mainsail's menu exists
@@ -2257,6 +2289,16 @@ function hookFrame() {
     if (!d) return clearInterval(poll);
     if (d.querySelector(".v-navigation-drawer a[href]")) { SHELL.ready = true; clearInterval(poll); }
   }, 300);
+}
+
+/* Mainsail's drawer overlays the page on small screens: close it, or its grey overlay is
+   still there the next time Mainsail is shown (the click never reached Mainsail) */
+function closeFrameDrawer(a) {
+  const drawer = a.closest(".v-navigation-drawer");
+  if (!drawer || !["v-navigation-drawer--temporary", "v-navigation-drawer--is-mobile"].some((c) => drawer.classList.contains(c))) return;
+  const doc = frameDoc(), app = doc && doc.querySelector(".v-application"), vm = app && app.__vue__;
+  try { if (vm && vm.$store) { vm.$store.dispatch("setNaviDrawer", false); return; } } catch { /* fall back */ }
+  doc && doc.querySelector(".v-overlay--active .v-overlay__scrim")?.click();
 }
 
 function navigateFrame(path) {
@@ -2272,6 +2314,7 @@ function navigateFrame(path) {
 
 function showMainsail(path, push = true) {
   if (!SHELL.enabled || !SHELL.ready) { location.href = path; return; }
+  if (isMobile() && NAV.open) { NAV.open = false; layoutNav(); }
   try { navigateFrame(path); } catch { location.href = path; return; }
   const f = SHELL.frame;
   f.style.visibility = "visible"; f.style.pointerEvents = "auto"; f.removeAttribute("aria-hidden"); f.inert = false;
@@ -2315,8 +2358,8 @@ document.addEventListener("click", (e) => {
   let u; try { u = new URL(a.getAttribute("href"), location.origin); } catch { return; }
   if (u.origin !== location.origin) return;
   e.preventDefault();
+  if (isMobile() && NAV.open) { NAV.open = false; layoutNav(); }
   if (SELF_RE.test(u.pathname)) return;
-  if (isMobile()) { NAV.open = false; layoutNav(); }
   showMainsail(u.pathname + u.search);
 }, true);
 
@@ -2469,6 +2512,8 @@ function wire() {
   $("shell-on").onchange = () => { store.set("shell", $("shell-on").checked); location.reload(); };
   $("hist-csv").onclick = () => histCsv();
   $("hist-clear").onclick = () => histClear();
+  $("overlay").onclick = () => { if (DLG) DLG(false); };
+  $("modal").onclick = (e) => { if (e.target === $("modal") && DLG) DLG(false); };
   $("setup-reset").onclick = async () => { if (await dialog(t("Einrichtung"), esc(t("Einrichtung zurücksetzen?")), "OK")) { store.set("setup", {}); render(); } };
   let rsT = 0;
   window.addEventListener("resize", () => {
