@@ -1016,6 +1016,7 @@ function setKlippy(st) {
 function merge(o) {
   for (const k in o) S[k] = Object.assign(S[k] || {}, o[k]);
   if (o.screws_tilt_adjust && o.screws_tilt_adjust.results) trackScrews(o.screws_tilt_adjust.results);
+  if (o.screws_tilt_adjust && !SHELL.visible) SHELL.screwsSeen = true;   // shown in the Bed & screws panel
   if (o.manual_probe && "is_active" in o.manual_probe) trackPaperTest(o.manual_probe.is_active);
   render();
 }
@@ -2250,7 +2251,7 @@ function moveSlider() {
 // Disable with ?shell=0 or the switch in the sidebar.
 // =====================================================================
 const SHELL = {
-  frame: null, ready: false, visible: false,
+  frame: null, ready: false, visible: false, screwsSeen: false,
   enabled: window.top === window && new URLSearchParams(location.search).get("shell") !== "0" && store.get("shell", true),
 };
 window.dockprobeShowProbe = () => showProbe(true);
@@ -2301,6 +2302,16 @@ function closeFrameDrawer(a) {
   doc && doc.querySelector(".v-overlay--active .v-overlay__scrim")?.click();
 }
 
+/* Mainsail opens its own "Screws tilt adjust" dialog for every screw result. Results that
+   were shown on this page are cleared in the background Mainsail – otherwise that dialog
+   pops up on the next switch to Mainsail. Results measured while Mainsail is shown keep
+   Mainsail's normal dialog. */
+function frameClearScrews() {
+  SHELL.screwsSeen = false;
+  const doc = frameDoc(), app = doc && doc.querySelector(".v-application"), vm = app && app.__vue__;
+  try { if (vm && vm.$store) vm.$store.dispatch("printer/clearScrewsTiltAdjust"); } catch { /* ignore */ }
+}
+
 function navigateFrame(path) {
   const doc = frameDoc(), win = SHELL.frame.contentWindow;
   const cur = win.location.pathname + win.location.search;
@@ -2316,6 +2327,7 @@ function showMainsail(path, push = true) {
   if (!SHELL.enabled || !SHELL.ready) { location.href = path; return; }
   if (isMobile() && NAV.open) { NAV.open = false; layoutNav(); }
   try { navigateFrame(path); } catch { location.href = path; return; }
+  if (SHELL.screwsSeen) frameClearScrews();
   const f = SHELL.frame;
   f.style.visibility = "visible"; f.style.pointerEvents = "auto"; f.removeAttribute("aria-hidden"); f.inert = false;
   SHELL.visible = true;
