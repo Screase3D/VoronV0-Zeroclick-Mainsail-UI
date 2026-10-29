@@ -102,6 +102,51 @@ html.theme--light #bed .bed { fill: rgba(0,0,0,.03); stroke: rgba(0,0,0,.3); }
 .prev div span:first-child { opacity: .7; }
 .chg fieldset { border-color: var(--v-warning-base) !important; }
 
+/* Mode switch (everyday use / setup & calibration) */
+.mode-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
+.seg-lg .v-btn { height: 40px !important; padding: 0 16px !important; font-size: .875rem; }
+.seg .v-btn.mode.on { background: var(--v-primary-base) !important; color: var(--v-btn-text-primary, #fff) !important; }
+.seg .v-btn.mode.on .v-icon { color: inherit !important; }
+@media (max-width: 600px) {
+  .mode-bar .seg-lg .v-btn { padding: 0 10px !important; font-size: .78rem; letter-spacing: .02em; }
+  .mode-bar .seg-lg .v-btn .v-icon { display: none; }
+}
+
+/* Action tiles */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+.tile { position: relative; min-height: 84px; padding: 10px 6px 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  border: thin solid rgba(255,255,255,.18); border-radius: 6px; background: rgba(255,255,255,.03); color: inherit;
+  font: 500 .8125rem Roboto, sans-serif; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; transition: border-color .15s, background-color .15s; }
+html.theme--light .tile { border-color: rgba(0,0,0,.2); background: rgba(0,0,0,.025); }
+.tile .v-icon { font-size: 26px !important; height: 26px !important; width: 26px !important; opacity: .85; }
+.tile .v-icon svg { height: 26px !important; width: 26px !important; }
+.tile:hover:not(:disabled) { border-color: var(--v-primary-base); background: rgba(33,150,243,.10); }
+.tile:focus-visible { outline: 2px solid var(--v-primary-base); outline-offset: 2px; }
+.tile:disabled { cursor: default; }
+.tile:disabled > *:not(.tile-c) { opacity: .4; }
+.tile:disabled:not(:hover) { border-style: dashed; }
+.tile.sug { border-color: var(--v-warning-base); box-shadow: 0 0 0 1px var(--v-warning-base) inset; }
+.tile.run { border-color: var(--v-primary-base); box-shadow: 0 0 0 1px var(--v-primary-base) inset; animation: tile-pulse 1.2s ease-in-out infinite; }
+.tile.run > * { opacity: 1 !important; }
+@keyframes tile-pulse { 50% { background-color: rgba(33,150,243,.16); } }
+@media (prefers-reduced-motion: reduce) { .tile.run { animation: none; } }
+.tile-t { line-height: 1.2; text-align: center; }
+.tile-c { font-size: .6875rem; font-weight: 500; letter-spacing: .01em; text-transform: none; line-height: 18px; padding: 0 7px; border-radius: 9px; white-space: nowrap;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; position: relative; opacity: .8; }
+.tile-c:empty { display: none; }
+.tile-c::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: currentColor; opacity: .14; }
+.sec-t { font-size: .75rem; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
+.op-hint { display: flex; gap: 10px; align-items: flex-start; font-size: .875rem; line-height: 1.45; }
+.op-hint .v-icon { flex: none; margin-top: 1px; }
+.op-hint:empty { display: none; }
+.op-hint .v-btn { margin-top: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { border: thin solid rgba(255,255,255,.2); background: transparent; color: inherit; border-radius: 14px; height: 26px; padding: 0 10px; font: 500 12px Roboto, sans-serif; cursor: pointer; }
+html.theme--light .chips button { border-color: rgba(0,0,0,.2); }
+.chips button:hover, .chips button.on { border-color: var(--v-primary-base); color: var(--v-primary-base); }
+[data-st="msg"] { max-width: 60%; }
+body.mode-op .only-setup { display: none !important; }
+
 /* History */
 .seg { display: inline-flex; flex-wrap: nowrap; border: thin solid rgba(255,255,255,.12); border-radius: 4px; overflow: hidden; max-width: 100%; }
 html.theme--light .seg { border-color: rgba(0,0,0,.12); }
@@ -169,42 +214,107 @@ body.no-mainsail .v-btn { background: #333; color: #fff; border: 0; border-radiu
     <div class="v-main__wrap">
       <div class="container container--fluid px-3 px-sm-6 py-sm-6 mx-auto" id="page-container">
         <div id="alerts"></div>
+        <div class="mode-bar mb-3 mb-md-5">
+          <div class="seg seg-lg" role="tablist" id="mode-seg">
+            <x-btn variant="text" size="default" cls="mode" data-mode="op" icon="mdiPrinter3dNozzle">Bedienen</x-btn>
+            <x-btn variant="text" size="default" cls="mode" data-mode="setup" icon="mdiWrench">Einrichten &amp; Kalibrieren</x-btn>
+          </div>
+          <span class="small muted" id="mode-hint"></span>
+        </div>
         <div class="row">
-          <!-- Columns: panels are distributed by JS depending on the width -->
+          <!-- Columns: panels are distributed by JS depending on the width and the mode -->
           <div class="col" id="col1">
+            <!-- ======== everyday use ======== -->
+            <x-panel p="control" icon="mdiCrosshairsGps" title="Steuerung">
+              <div class="v-card__text">
+                <table class="kv">
+                  <tr><td>Probe</td><td data-st="probe">–</td></tr>
+                  <tr><td>Probe-Schalter</td><td data-st="pin">–</td></tr>
+                  <tr><td>Position</td><td data-st="pos">–</td></tr>
+                  <tr><td>Bed Mesh</td><td data-st="mesh">–</td></tr>
+                  <tr><td>Druckschutz</td><td data-st="guard">–</td></tr>
+                  <tr><td>Letzte Meldung</td><td data-st="msg">–</td></tr>
+                </table>
+                <div class="tiles mt-4" role="group" aria-label="Probe">
+                  <button type="button" class="tile act" data-g="G28" data-run="G28" data-tile="home"><span data-icon="mdiHome"></span><span class="tile-t">Home</span><span class="tile-c"></span></button>
+                  <button type="button" class="tile act" data-g="ATTACH_PROBE" data-run="ATTACH_PROBE" data-tile="attach"><span data-icon="mdiTrayArrowUp"></span><span class="tile-t">Andocken</span><span class="tile-c"></span></button>
+                  <button type="button" class="tile act" data-g="DETACH_PROBE" data-run="DETACH_PROBE" data-tile="detach"><span data-icon="mdiTrayArrowDown"></span><span class="tile-t">Ablegen</span><span class="tile-c"></span></button>
+                  <button type="button" class="tile act" data-g="PROBE_STATUS" data-run="PROBE_STATUS" data-tile="check"><span data-icon="mdiMagnify"></span><span class="tile-t">Prüfen</span><span class="tile-c"></span></button>
+                </div>
+                <div class="op-hint mt-4" id="op-hint"></div>
+              </div>
+              <hr role="separator" class="v-divider theme--dark">
+              <div class="v-card__text">
+                <div class="sec-t mb-3">Vor dem Druck</div>
+                <div class="tiles" role="group" aria-label="Vor dem Druck">
+                  <button type="button" class="tile act" id="mesh" data-run="BED_MESH_CALIBRATE" data-tile="mesh"><span data-icon="mdiGrid"></span><span class="tile-t">Mesh messen</span><span class="tile-c"></span></button>
+                  <button type="button" class="tile act" id="screws" data-run="SCREWS_TILT_CALCULATE" data-tile="screws"><span data-icon="mdiScrewdriver"></span><span class="tile-t">Schrauben prüfen</span><span class="tile-c"></span></button>
+                  <button type="button" class="tile act" id="cal" data-run="CALIBRATE_ALL" data-tile="cal"><span data-icon="mdiAutoFix"></span><span class="tile-t">Komplett-Kalibrierung</span><span class="tile-c"></span></button>
+                </div>
+                <div class="d-flex align-center flex-wrap mt-4" style="gap:10px 12px">
+                  <x-field label="Bett °C" id="cal-bed" type="number" min="0" max="130" step="5" value="60" style="width:100px"></x-field>
+                  <x-field label="Durchwärmen" id="cal-soak" type="number" min="0" max="60" value="10" suffix="min" style="width:130px"></x-field>
+                  <x-field label="Mesh-Profil" id="cal-prof" type="text" value="default" style="width:130px"></x-field>
+                  <div class="chips" id="bed-chips"></div>
+                </div>
+                <div class="d-flex flex-wrap mt-3" style="gap:8px 24px">
+                  <x-check label="Schrauben prüfen" id="cal-screws" checked></x-check>
+                  <x-check label="Mesh messen" id="cal-mesh" checked></x-check>
+                </div>
+                <div class="small muted mt-2">Komplett-Kalibrierung: homen, Bett heizen und durchwärmen, Schrauben prüfen (stoppt bei schiefem Bett), Mesh messen, Probe ablegen.</div>
+              </div>
+            </x-panel>
+
+            <!-- ======== setup & calibration ======== -->
             <x-panel p="setup" icon="mdiFormatListChecks" title="Einrichtung">
               <x-tools><x-btn variant="icon" id="setup-reset" title="Zurücksetzen" icon="mdiReload"></x-btn></x-tools>
+              <div class="v-card__text pb-0">
+                <table class="kv">
+                  <tr><td>Druckschutz</td><td data-st="guard">–</td></tr>
+                  <tr><td>Pin-Prüfung</td><td id="su-verify">–</td></tr>
+                  <tr><td>Dock-Layout</td><td id="su-dock">–</td></tr>
+                  <tr><td>Einstellungsdatei</td><td id="su-file">–</td></tr>
+                </table>
+                <div class="small muted mt-2 hide" id="guard-hint"></div>
+              </div>
               <div class="v-list v-sheet theme--dark v-list--dense py-0" id="setup-list"></div>
             </x-panel>
 
-            <x-panel p="probe" icon="mdiCrosshairsGps" title="Probe">
+            <x-panel p="probe" icon="mdiCrosshairsGps" title="Probe testen">
               <div class="v-card__text">
                 <table class="kv">
-                  <tr><td>Probe</td><td id="s-probe">–</td></tr>
-                  <tr><td>Probe-Schalter</td><td id="s-pin">–</td></tr>
-                  <tr><td>Position</td><td id="s-pos">–</td></tr>
+                  <tr><td>Probe</td><td data-st="probe">–</td></tr>
+                  <tr><td>Probe-Schalter</td><td data-st="pin">–</td></tr>
+                  <tr><td>Position</td><td data-st="pos">–</td></tr>
                   <tr><td>Offsets x / y / z</td><td id="s-off">–</td></tr>
-                  <tr><td>Druckschutz</td><td id="s-guard">–</td></tr>
                 </table>
-                <div class="small muted mt-2 hide" id="guard-hint"></div>
                 <div class="btn-row mt-4">
                   <x-btn g="G28" act icon="mdiHome">Home</x-btn>
-                  <x-btn g="ATTACH_PROBE" act color="primary">Andocken</x-btn>
-                  <x-btn g="DETACH_PROBE" act color="primary">Ablegen</x-btn>
-                  <x-btn g="PROBE_STATUS" act>Prüfen</x-btn>
+                  <x-btn g="ATTACH_PROBE" act color="primary" icon="mdiTrayArrowUp">Andocken</x-btn>
+                  <x-btn g="DETACH_PROBE" act color="primary" icon="mdiTrayArrowDown">Ablegen</x-btn>
+                  <x-btn g="PROBE_STATUS" act icon="mdiMagnify">Prüfen</x-btn>
                 </div>
               </div>
               <hr role="separator" class="v-divider theme--dark">
               <div class="v-card__text">
+                <div class="sec-t mb-1">Genauigkeit</div>
+                <div class="small muted mb-3">Misst mehrmals an derselben Stelle. Spanne unter 0,01 mm ist sehr gut.</div>
                 <div class="d-flex align-center flex-wrap" style="gap:12px">
                   <x-field label="Samples" id="acc-n" type="number" min="3" max="50" value="10" style="width:96px"></x-field>
-                  <x-btn id="acc" act icon="mdiChartBellCurve">Genauigkeit</x-btn>
-                  <x-btn g="MEASURE_PROBE_OFFSET" act icon="mdiArrowCollapseDown">z_offset messen</x-btn>
+                  <x-btn id="acc" act icon="mdiChartBellCurve">Genauigkeit messen</x-btn>
                 </div>
                 <div id="acc-res" class="mt-3"></div>
                 <svg id="acc-chart" class="hide"></svg>
+              </div>
+              <hr role="separator" class="v-divider theme--dark">
+              <div class="v-card__text">
+                <div class="sec-t mb-1">Erste Schicht: Z-Endstop und z_offset</div>
+                <div class="small muted mb-3">Erst der Papiertest am Referenzpunkt, danach z_offset prüfen. Ergebnis ≈ 0 heißt: passt. Nach jeder Drehung an einer Bettschraube wiederholen.</div>
+                <div class="btn-row">
+                  <x-btn g="CALIBRATE_Z_ENDSTOP" act icon="mdiArrowCollapseDown">1 · Z-Endstop (Papiertest)</x-btn>
+                  <x-btn g="MEASURE_PROBE_OFFSET" act icon="mdiArrowCollapseDown">2 · z_offset messen</x-btn>
+                </div>
                 <div id="off-res" class="mt-3"></div>
-                <div class="small muted mt-2">Erst Z-Endstop-Papiertest, dann z_offset messen. Ergebnis ≈ 0 heißt: passt.</div>
               </div>
             </x-panel>
 
@@ -234,7 +344,7 @@ body.no-mainsail .v-btn { background: #333; color: #fff; border: 0; border-radiu
 
           <div class="col" id="col2">
             <x-panel p="bed" icon="mdiScrewdriver" title="Bett & Schrauben">
-              <x-tools><x-btn variant="text" color="primary" size="default" id="screws" act icon="mdiPlay">Schrauben messen</x-btn></x-tools>
+              <x-tools><x-btn variant="text" color="primary" size="default" id="screws-setup" cls="only-setup" act icon="mdiPlay">Schrauben messen</x-btn></x-tools>
               <div class="v-card__text">
                 <svg id="bed"></svg>
                 <div class="d-flex align-center justify-center mt-1" id="bed-state"></div>
@@ -245,7 +355,6 @@ body.no-mainsail .v-btn { background: #333; color: #fff; border: 0; border-radiu
             </x-panel>
 
             <x-panel p="mesh" icon="mdiGrid" title="Bed Mesh">
-              <x-tools><x-btn variant="text" color="primary" size="default" id="mesh" act icon="mdiPlay">Mesh messen</x-btn></x-tools>
               <div class="v-card__text">
                 <div class="small mb-2" id="mesh-info"></div>
                 <div id="mesh-tbl"></div>
@@ -264,24 +373,6 @@ body.no-mainsail .v-btn { background: #333; color: #fff; border: 0; border-radiu
           </div>
 
           <div class="col" id="col3">
-            <x-panel p="cal" icon="mdiTune" title="Kalibrierung">
-              <div class="v-card__text">
-                <div class="field-grid">
-                  <x-field label="Bett °C" id="cal-bed" type="number" value="60"></x-field>
-                  <x-field label="Soak (min)" id="cal-soak" type="number" value="10"></x-field>
-                  <x-field label="Mesh-Profil" id="cal-prof" type="text" value="default"></x-field>
-                </div>
-                <div class="d-flex flex-wrap mt-2" style="gap:24px">
-                  <x-check label="Schrauben" id="cal-screws" checked></x-check>
-                  <x-check label="Mesh" id="cal-mesh" checked></x-check>
-                </div>
-                <div class="btn-row mt-4">
-                  <x-btn id="cal" act color="primary" icon="mdiPlay">Komplett-Kalibrierung</x-btn>
-                  <x-btn g="CALIBRATE_Z_ENDSTOP" act icon="mdiArrowCollapseDown">Z-Endstop (Papiertest)</x-btn>
-                </div>
-              </div>
-            </x-panel>
-
             <x-panel p="settings" icon="mdiCog" title="Einstellungen">
               <div class="v-tabs v-tabs--fixed-tabs theme--dark" id="tabs">
                 <div role="tablist" class="v-item-group theme--dark v-slide-group v-tabs-bar primary--text">
@@ -424,7 +515,7 @@ body.no-mainsail .v-btn { background: #333; color: #fff; border: 0; border-radiu
 
 <script>
 "use strict";
-const ICON = {"mdiAlertCircleOutline":"M11,15H13V17H11V15M11,7H13V13H11V7M12,2C6.47,2 2,6.5 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20Z","mdiAlertOctagonOutline":"M8.27,3L3,8.27V15.73L8.27,21H15.73C17.5,19.24 21,15.73 21,15.73V8.27L15.73,3M9.1,5H14.9L19,9.1V14.9L14.9,19H9.1L5,14.9V9.1M11,15H13V17H11V15M11,7H13V13H11V7","mdiAlertOutline":"M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16","mdiArrowCollapseDown":"M19.92,12.08L12,20L4.08,12.08L5.5,10.67L11,16.17V2H13V16.17L18.5,10.66L19.92,12.08M12,20H2V22H22V20H12Z","mdiArrowExpandUp":"M2,20V22H22V20H13V5.83L18.5,11.33L19.92,9.92L12,2L4.08,9.92L5.5,11.33L11,5.83V20H2Z","mdiChartBellCurve":"M9.96,11.31C10.82,8.1 11.5,6 13,6C14.5,6 15.18,8.1 16.04,11.31C17,14.92 18.1,19 22,19V17C19.8,17 19,14.54 17.97,10.8C17.08,7.46 16.15,4 13,4C9.85,4 8.92,7.46 8.03,10.8C7.03,14.54 6.2,17 4,17V2H2V22H22V20H4V19C7.9,19 9,14.92 9.96,11.31Z","mdiCheckCircle":"M12 2C6.5 2 2 6.5 2 12S6.5 22 12 22 22 17.5 22 12 17.5 2 12 2M10 17L5 12L6.41 10.59L10 14.17L17.59 6.58L19 8L10 17Z","mdiCheckboxBlankOutline":"M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M19,5V19H5V5H19Z","mdiCheckboxMarked":"M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3Z","mdiChevronDown":"M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z","mdiChevronTripleLeft":"M9.42,7.41L4.83,12L9.42,16.59L8,18L2,12L8,6L9.42,7.41M15.42,7.41L10.83,12L15.42,16.59L14,18L8,12L14,6L15.42,7.41M21.42,7.41L16.83,12L21.42,16.59L20,18L14,12L20,6L21.42,7.41Z","mdiChevronTripleRight":"M14.58,16.59L19.17,12L14.58,7.41L16,6L22,12L16,18L14.58,16.59M8.58,16.59L13.17,12L8.58,7.41L10,6L16,12L10,18L8.58,16.59M2.58,16.59L7.17,12L2.58,7.41L4,6L10,12L4,18L2.58,16.59Z","mdiCloseThick":"M20 6.91L17.09 4L12 9.09L6.91 4L4 6.91L9.09 12L4 17.09L6.91 20L12 14.91L17.09 20L20 17.09L14.91 12L20 6.91Z","mdiCog":"M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z","mdiConsoleLine":"M13,19V16H21V19H13M8.5,13L2.47,7H6.71L11.67,11.95C12.25,12.54 12.25,13.5 11.67,14.07L6.74,19H2.5L8.5,13Z","mdiContentSave":"M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z","mdiCrosshairsGps":"M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8M3.05,13H1V11H3.05C3.5,6.83 6.83,3.5 11,3.05V1H13V3.05C17.17,3.5 20.5,6.83 20.95,11H23V13H20.95C20.5,17.17 17.17,20.5 13,20.95V23H11V20.95C6.83,20.5 3.5,17.17 3.05,13M12,5A7,7 0 0,0 5,12A7,7 0 0,0 12,19A7,7 0 0,0 19,12A7,7 0 0,0 12,5Z","mdiDelete":"M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z","mdiDownload":"M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z","mdiFileDocumentMultipleOutline":"M16 0H8C6.9 0 6 .9 6 2V18C6 19.1 6.9 20 8 20H20C21.1 20 22 19.1 22 18V6L16 0M20 18H8V2H15V7H20V18M4 4V22H20V24H4C2.9 24 2 23.1 2 22V4H4M10 10V12H18V10H10M10 14V16H15V14H10Z","mdiFormatListChecks":"M3,5H9V11H3V5M5,7V9H7V7H5M11,7H21V9H11V7M11,15H21V17H11V15M5,20L1.5,16.5L2.91,15.09L5,17.17L9.59,12.59L11,14L5,20Z","mdiGrid":"M10,4V8H14V4H10M16,4V8H20V4H16M16,10V14H20V10H16M16,16V20H20V16H16M14,20V16H10V20H14M8,20V16H4V20H8M8,14V10H4V14H8M8,8V4H4V8H8M10,14H14V10H10V14M4,2H20A2,2 0 0,1 22,4V20A2,2 0 0,1 20,22H4C2.92,22 2,21.1 2,20V4A2,2 0 0,1 4,2Z","mdiHistory":"M13.5,8H12V13L16.28,15.54L17,14.33L13.5,12.25V8M13,3A9,9 0 0,0 4,12H1L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3","mdiHome":"M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z","mdiInformationOutline":"M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z","mdiMapMarker":"M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5M12,2A7,7 0 0,0 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9A7,7 0 0,0 12,2Z","mdiMenu":"M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z","mdiMinusThick":"M20 14H4V10H20","mdiMonitorDashboard":"M21,16V4H3V16H21M21,2A2,2 0 0,1 23,4V16A2,2 0 0,1 21,18H14V20H16V22H8V20H10V18H3C1.89,18 1,17.1 1,16V4C1,2.89 1.89,2 3,2H21M5,6H14V11H5V6M15,6H19V8H15V6M19,9V14H15V9H19M5,12H9V14H5V12M10,12H14V14H10V12Z","mdiPlay":"M8,5.14V19.14L19,12.14L8,5.14Z","mdiPlus":"M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z","mdiPlusThick":"M20 14H14V20H10V14H4V10H10V4H14V10H20V14Z","mdiProgressCheck":"M13,2.03V2.05L13,4.05C17.39,4.59 20.5,8.58 19.96,12.97C19.5,16.61 16.64,19.5 13,19.93V21.93C18.5,21.38 22.5,16.5 21.95,11C21.5,6.25 17.73,2.5 13,2.03M11,2.06C9.05,2.25 7.19,3 5.67,4.26L7.1,5.74C8.22,4.84 9.57,4.26 11,4.06V2.06M4.26,5.67C3,7.19 2.25,9.04 2.05,11H4.05C4.24,9.58 4.8,8.23 5.69,7.1L4.26,5.67M15.5,8.5L10.62,13.38L8.5,11.26L7.44,12.32L10.62,15.5L16.56,9.56L15.5,8.5M2.06,13C2.26,14.96 3.03,16.81 4.27,18.33L5.69,16.9C4.81,15.77 4.24,14.42 4.06,13H2.06M7.1,18.37L5.67,19.74C7.18,21 9.04,21.79 11,22V20C9.58,19.82 8.23,19.25 7.1,18.37Z","mdiReload":"M2 12C2 16.97 6.03 21 11 21C13.39 21 15.68 20.06 17.4 18.4L15.9 16.9C14.63 18.25 12.86 19 11 19C4.76 19 1.64 11.46 6.05 7.05C10.46 2.64 18 5.77 18 12H15L19 16H19.1L23 12H20C20 7.03 15.97 3 11 3C6.03 3 2 7.03 2 12Z","mdiRestart":"M12,4C14.1,4 16.1,4.8 17.6,6.3C20.7,9.4 20.7,14.5 17.6,17.6C15.8,19.5 13.3,20.2 10.9,19.9L11.4,17.9C13.1,18.1 14.9,17.5 16.2,16.2C18.5,13.9 18.5,10.1 16.2,7.7C15.1,6.6 13.5,6 12,6V10.6L7,5.6L12,0.6V4M6.3,17.6C3.7,15 3.3,11 5.1,7.9L6.6,9.4C5.5,11.6 5.9,14.4 7.8,16.2C8.3,16.7 8.9,17.1 9.6,17.4L9,19.4C8,19 7.1,18.4 6.3,17.6Z","mdiScrewdriver":"M18,1.83C17.5,1.83 17,2 16.59,2.41C13.72,5.28 8,11 8,11L9.5,12.5L6,16H4L2,20L4,22L8,20V18L11.5,14.5L13,16C13,16 18.72,10.28 21.59,7.41C22.21,6.5 22.37,5.37 21.59,4.59L19.41,2.41C19,2 18.5,1.83 18,1.83M18,4L20,6L13,13L11,11L18,4Z","mdiSend":"M2,21L23,12L2,3V10L17,12L2,14V21Z","mdiSwapHorizontal":"M21,9L17,5V8H10V10H17V13M7,11L3,15L7,19V16H14V14H7V11Z","mdiTimelapse":"M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M16.24,7.76C15.07,6.58 13.53,6 12,6V12L7.76,16.24C10.1,18.58 13.9,18.58 16.24,16.24C18.59,13.9 18.59,10.1 16.24,7.76Z","mdiTranslate":"M12.87,15.07L10.33,12.56L10.36,12.53C12.1,10.59 13.34,8.36 14.07,6H17V4H10V2H8V4H1V6H12.17C11.5,7.92 10.44,9.75 9,11.35C8.07,10.32 7.3,9.19 6.69,8H4.69C5.42,9.63 6.42,11.17 7.67,12.56L2.58,17.58L4,19L9,14L12.11,17.11L12.87,15.07M18.5,10H16.5L12,22H14L15.12,19H19.87L21,22H23L18.5,10M15.88,17L17.5,12.67L19.12,17H15.88Z","mdiTune":"M3,17V19H9V17H3M3,5V7H13V5H3M13,21V19H21V17H13V15H11V21H13M7,9V11H3V13H7V15H9V9H7M21,13V11H11V13H21M15,9H17V7H21V5H17V3H15V9Z","mdiUpdate":"M21,10.12H14.22L16.96,7.3C14.23,4.6 9.81,4.5 7.08,7.2C4.35,9.91 4.35,14.28 7.08,17C9.81,19.7 14.23,19.7 16.96,17C18.32,15.65 19,14.08 19,12.1H21C21,14.08 20.12,16.65 18.36,18.39C14.85,21.87 9.15,21.87 5.64,18.39C2.14,14.92 2.11,9.28 5.62,5.81C9.13,2.34 14.76,2.34 18.27,5.81L21,3V10.12M12.5,8V12.25L16,14.33L15.28,15.54L11,13V8H12.5Z","mdiVideo3d":"M5,7H9A2,2 0 0,1 11,9V15A2,2 0 0,1 9,17H5V15H9V13H6V11H9V9H5V7M13,7H16A3,3 0 0,1 19,10V14A3,3 0 0,1 16,17H13V7M16,15A1,1 0 0,0 17,14V10A1,1 0 0,0 16,9H15V15H16Z","mdiWebcam":"M12,2A7,7 0 0,1 19,9A7,7 0 0,1 12,16A7,7 0 0,1 5,9A7,7 0 0,1 12,2M12,4A5,5 0 0,0 7,9A5,5 0 0,0 12,14A5,5 0 0,0 17,9A5,5 0 0,0 12,4M12,6A3,3 0 0,1 15,9A3,3 0 0,1 12,12A3,3 0 0,1 9,9A3,3 0 0,1 12,6M6,22A2,2 0 0,1 4,20C4,19.62 4.1,19.27 4.29,18.97L6.11,15.81C7.69,17.17 9.75,18 12,18C14.25,18 16.31,17.17 17.89,15.81L19.71,18.97C19.9,19.27 20,19.62 20,20A2,2 0 0,1 18,22H6Z","mdiWrench":"M22.7,19L13.6,9.9C14.5,7.6 14,4.9 12.1,3C10.1,1 7.1,0.6 4.7,1.7L9,6L6,9L1.6,4.7C0.4,7.1 0.9,10.1 2.9,12.1C4.8,14 7.5,14.5 9.8,13.6L18.9,22.7C19.3,23.1 19.9,23.1 20.3,22.7L22.6,20.4C23.1,20 23.1,19.3 22.7,19Z"};
+const ICON = {"mdiTrayArrowUp":"M2 12H4V17H20V12H22V17C22 18.11 21.11 19 20 19H4C2.9 19 2 18.11 2 17V12M12 2L6.46 7.46L7.88 8.88L11 5.75V15H13V5.75L16.13 8.88L17.55 7.45L12 2Z","mdiTrayArrowDown":"M2 12H4V17H20V12H22V17C22 18.11 21.11 19 20 19H4C2.9 19 2 18.11 2 17V12M12 15L17.55 9.54L16.13 8.13L13 11.25V2H11V11.25L7.88 8.13L6.46 9.55L12 15Z","mdiMagnify":"M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z","mdiAutoFix":"M7.5,5.6L5,7L6.4,4.5L5,2L7.5,3.4L10,2L8.6,4.5L10,7L7.5,5.6M19.5,15.4L22,14L20.6,16.5L22,19L19.5,17.6L17,19L18.4,16.5L17,14L19.5,15.4M22,2L20.6,4.5L22,7L19.5,5.6L17,7L18.4,4.5L17,2L19.5,3.4L22,2M13.34,12.78L15.78,10.34L13.66,8.22L11.22,10.66L13.34,12.78M14.37,7.29L16.71,9.63C17.1,10 17.1,10.65 16.71,11.04L5.04,22.71C4.65,23.1 4,23.1 3.63,22.71L1.29,20.37C0.9,20 0.9,19.35 1.29,18.96L12.96,7.29C13.35,6.9 14,6.9 14.37,7.29Z","mdiPrinter3dNozzle":"M7,2H17V8H19V13H16.5L13,17H11L7.5,13H5V8H7V2M10,22H2V20H10A1,1 0 0,0 11,19V18H13V19A3,3 0 0,1 10,22Z","mdiArrowRight":"M4,11V13H16L10.5,18.5L11.92,19.92L19.84,12L11.92,4.08L10.5,5.5L16,11H4Z","mdiThermometer":"M15 13V5A3 3 0 0 0 9 5V13A5 5 0 1 0 15 13M12 4A1 1 0 0 1 13 5V8H11V5A1 1 0 0 1 12 4Z","mdiAlertCircleOutline":"M11,15H13V17H11V15M11,7H13V13H11V7M12,2C6.47,2 2,6.5 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20Z","mdiAlertOctagonOutline":"M8.27,3L3,8.27V15.73L8.27,21H15.73C17.5,19.24 21,15.73 21,15.73V8.27L15.73,3M9.1,5H14.9L19,9.1V14.9L14.9,19H9.1L5,14.9V9.1M11,15H13V17H11V15M11,7H13V13H11V7","mdiAlertOutline":"M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16","mdiArrowCollapseDown":"M19.92,12.08L12,20L4.08,12.08L5.5,10.67L11,16.17V2H13V16.17L18.5,10.66L19.92,12.08M12,20H2V22H22V20H12Z","mdiArrowExpandUp":"M2,20V22H22V20H13V5.83L18.5,11.33L19.92,9.92L12,2L4.08,9.92L5.5,11.33L11,5.83V20H2Z","mdiChartBellCurve":"M9.96,11.31C10.82,8.1 11.5,6 13,6C14.5,6 15.18,8.1 16.04,11.31C17,14.92 18.1,19 22,19V17C19.8,17 19,14.54 17.97,10.8C17.08,7.46 16.15,4 13,4C9.85,4 8.92,7.46 8.03,10.8C7.03,14.54 6.2,17 4,17V2H2V22H22V20H4V19C7.9,19 9,14.92 9.96,11.31Z","mdiCheckCircle":"M12 2C6.5 2 2 6.5 2 12S6.5 22 12 22 22 17.5 22 12 17.5 2 12 2M10 17L5 12L6.41 10.59L10 14.17L17.59 6.58L19 8L10 17Z","mdiCheckboxBlankOutline":"M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M19,5V19H5V5H19Z","mdiCheckboxMarked":"M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3Z","mdiChevronDown":"M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z","mdiChevronTripleLeft":"M9.42,7.41L4.83,12L9.42,16.59L8,18L2,12L8,6L9.42,7.41M15.42,7.41L10.83,12L15.42,16.59L14,18L8,12L14,6L15.42,7.41M21.42,7.41L16.83,12L21.42,16.59L20,18L14,12L20,6L21.42,7.41Z","mdiChevronTripleRight":"M14.58,16.59L19.17,12L14.58,7.41L16,6L22,12L16,18L14.58,16.59M8.58,16.59L13.17,12L8.58,7.41L10,6L16,12L10,18L8.58,16.59M2.58,16.59L7.17,12L2.58,7.41L4,6L10,12L4,18L2.58,16.59Z","mdiCloseThick":"M20 6.91L17.09 4L12 9.09L6.91 4L4 6.91L9.09 12L4 17.09L6.91 20L12 14.91L17.09 20L20 17.09L14.91 12L20 6.91Z","mdiCog":"M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z","mdiConsoleLine":"M13,19V16H21V19H13M8.5,13L2.47,7H6.71L11.67,11.95C12.25,12.54 12.25,13.5 11.67,14.07L6.74,19H2.5L8.5,13Z","mdiContentSave":"M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z","mdiCrosshairsGps":"M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8M3.05,13H1V11H3.05C3.5,6.83 6.83,3.5 11,3.05V1H13V3.05C17.17,3.5 20.5,6.83 20.95,11H23V13H20.95C20.5,17.17 17.17,20.5 13,20.95V23H11V20.95C6.83,20.5 3.5,17.17 3.05,13M12,5A7,7 0 0,0 5,12A7,7 0 0,0 12,19A7,7 0 0,0 19,12A7,7 0 0,0 12,5Z","mdiDelete":"M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z","mdiDownload":"M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z","mdiFileDocumentMultipleOutline":"M16 0H8C6.9 0 6 .9 6 2V18C6 19.1 6.9 20 8 20H20C21.1 20 22 19.1 22 18V6L16 0M20 18H8V2H15V7H20V18M4 4V22H20V24H4C2.9 24 2 23.1 2 22V4H4M10 10V12H18V10H10M10 14V16H15V14H10Z","mdiFormatListChecks":"M3,5H9V11H3V5M5,7V9H7V7H5M11,7H21V9H11V7M11,15H21V17H11V15M5,20L1.5,16.5L2.91,15.09L5,17.17L9.59,12.59L11,14L5,20Z","mdiGrid":"M10,4V8H14V4H10M16,4V8H20V4H16M16,10V14H20V10H16M16,16V20H20V16H16M14,20V16H10V20H14M8,20V16H4V20H8M8,14V10H4V14H8M8,8V4H4V8H8M10,14H14V10H10V14M4,2H20A2,2 0 0,1 22,4V20A2,2 0 0,1 20,22H4C2.92,22 2,21.1 2,20V4A2,2 0 0,1 4,2Z","mdiHistory":"M13.5,8H12V13L16.28,15.54L17,14.33L13.5,12.25V8M13,3A9,9 0 0,0 4,12H1L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3","mdiHome":"M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z","mdiInformationOutline":"M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z","mdiMapMarker":"M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5M12,2A7,7 0 0,0 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9A7,7 0 0,0 12,2Z","mdiMenu":"M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z","mdiMinusThick":"M20 14H4V10H20","mdiMonitorDashboard":"M21,16V4H3V16H21M21,2A2,2 0 0,1 23,4V16A2,2 0 0,1 21,18H14V20H16V22H8V20H10V18H3C1.89,18 1,17.1 1,16V4C1,2.89 1.89,2 3,2H21M5,6H14V11H5V6M15,6H19V8H15V6M19,9V14H15V9H19M5,12H9V14H5V12M10,12H14V14H10V12Z","mdiPlay":"M8,5.14V19.14L19,12.14L8,5.14Z","mdiPlus":"M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z","mdiPlusThick":"M20 14H14V20H10V14H4V10H10V4H14V10H20V14Z","mdiProgressCheck":"M13,2.03V2.05L13,4.05C17.39,4.59 20.5,8.58 19.96,12.97C19.5,16.61 16.64,19.5 13,19.93V21.93C18.5,21.38 22.5,16.5 21.95,11C21.5,6.25 17.73,2.5 13,2.03M11,2.06C9.05,2.25 7.19,3 5.67,4.26L7.1,5.74C8.22,4.84 9.57,4.26 11,4.06V2.06M4.26,5.67C3,7.19 2.25,9.04 2.05,11H4.05C4.24,9.58 4.8,8.23 5.69,7.1L4.26,5.67M15.5,8.5L10.62,13.38L8.5,11.26L7.44,12.32L10.62,15.5L16.56,9.56L15.5,8.5M2.06,13C2.26,14.96 3.03,16.81 4.27,18.33L5.69,16.9C4.81,15.77 4.24,14.42 4.06,13H2.06M7.1,18.37L5.67,19.74C7.18,21 9.04,21.79 11,22V20C9.58,19.82 8.23,19.25 7.1,18.37Z","mdiReload":"M2 12C2 16.97 6.03 21 11 21C13.39 21 15.68 20.06 17.4 18.4L15.9 16.9C14.63 18.25 12.86 19 11 19C4.76 19 1.64 11.46 6.05 7.05C10.46 2.64 18 5.77 18 12H15L19 16H19.1L23 12H20C20 7.03 15.97 3 11 3C6.03 3 2 7.03 2 12Z","mdiRestart":"M12,4C14.1,4 16.1,4.8 17.6,6.3C20.7,9.4 20.7,14.5 17.6,17.6C15.8,19.5 13.3,20.2 10.9,19.9L11.4,17.9C13.1,18.1 14.9,17.5 16.2,16.2C18.5,13.9 18.5,10.1 16.2,7.7C15.1,6.6 13.5,6 12,6V10.6L7,5.6L12,0.6V4M6.3,17.6C3.7,15 3.3,11 5.1,7.9L6.6,9.4C5.5,11.6 5.9,14.4 7.8,16.2C8.3,16.7 8.9,17.1 9.6,17.4L9,19.4C8,19 7.1,18.4 6.3,17.6Z","mdiScrewdriver":"M18,1.83C17.5,1.83 17,2 16.59,2.41C13.72,5.28 8,11 8,11L9.5,12.5L6,16H4L2,20L4,22L8,20V18L11.5,14.5L13,16C13,16 18.72,10.28 21.59,7.41C22.21,6.5 22.37,5.37 21.59,4.59L19.41,2.41C19,2 18.5,1.83 18,1.83M18,4L20,6L13,13L11,11L18,4Z","mdiSend":"M2,21L23,12L2,3V10L17,12L2,14V21Z","mdiSwapHorizontal":"M21,9L17,5V8H10V10H17V13M7,11L3,15L7,19V16H14V14H7V11Z","mdiTimelapse":"M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M16.24,7.76C15.07,6.58 13.53,6 12,6V12L7.76,16.24C10.1,18.58 13.9,18.58 16.24,16.24C18.59,13.9 18.59,10.1 16.24,7.76Z","mdiTranslate":"M12.87,15.07L10.33,12.56L10.36,12.53C12.1,10.59 13.34,8.36 14.07,6H17V4H10V2H8V4H1V6H12.17C11.5,7.92 10.44,9.75 9,11.35C8.07,10.32 7.3,9.19 6.69,8H4.69C5.42,9.63 6.42,11.17 7.67,12.56L2.58,17.58L4,19L9,14L12.11,17.11L12.87,15.07M18.5,10H16.5L12,22H14L15.12,19H19.87L21,22H23L18.5,10M15.88,17L17.5,12.67L19.12,17H15.88Z","mdiTune":"M3,17V19H9V17H3M3,5V7H13V5H3M13,21V19H21V17H13V15H11V21H13M7,9V11H3V13H7V15H9V9H7M21,13V11H11V13H21M15,9H17V7H21V5H17V3H15V9Z","mdiUpdate":"M21,10.12H14.22L16.96,7.3C14.23,4.6 9.81,4.5 7.08,7.2C4.35,9.91 4.35,14.28 7.08,17C9.81,19.7 14.23,19.7 16.96,17C18.32,15.65 19,14.08 19,12.1H21C21,14.08 20.12,16.65 18.36,18.39C14.85,21.87 9.15,21.87 5.64,18.39C2.14,14.92 2.11,9.28 5.62,5.81C9.13,2.34 14.76,2.34 18.27,5.81L21,3V10.12M12.5,8V12.25L16,14.33L15.28,15.54L11,13V8H12.5Z","mdiVideo3d":"M5,7H9A2,2 0 0,1 11,9V15A2,2 0 0,1 9,17H5V15H9V13H6V11H9V9H5V7M13,7H16A3,3 0 0,1 19,10V14A3,3 0 0,1 16,17H13V7M16,15A1,1 0 0,0 17,14V10A1,1 0 0,0 16,9H15V15H16Z","mdiWebcam":"M12,2A7,7 0 0,1 19,9A7,7 0 0,1 12,16A7,7 0 0,1 5,9A7,7 0 0,1 12,2M12,4A5,5 0 0,0 7,9A5,5 0 0,0 12,14A5,5 0 0,0 17,9A5,5 0 0,0 12,4M12,6A3,3 0 0,1 15,9A3,3 0 0,1 12,12A3,3 0 0,1 9,9A3,3 0 0,1 12,6M6,22A2,2 0 0,1 4,20C4,19.62 4.1,19.27 4.29,18.97L6.11,15.81C7.69,17.17 9.75,18 12,18C14.25,18 16.31,17.17 17.89,15.81L19.71,18.97C19.9,19.27 20,19.62 20,20A2,2 0 0,1 18,22H6Z","mdiWrench":"M22.7,19L13.6,9.9C14.5,7.6 14,4.9 12.1,3C10.1,1 7.1,0.6 4.7,1.7L9,6L6,9L1.6,4.7C0.4,7.1 0.9,10.1 2.9,12.1C4.8,14 7.5,14.5 9.8,13.6L18.9,22.7C19.3,23.1 19.9,23.1 20.3,22.7L22.6,20.4C23.1,20 23.1,19.3 22.7,19Z"};
 const VERSION_KEY = "voron0-dockprobe";       // name of the update_manager entry
 const SETTINGS = "probe_dock_settings.cfg";
 const BASE = location.pathname.replace(/[^/]*$/, "") || "/probe/";   // /probe/ or /server/dockprobe/
@@ -479,7 +570,6 @@ const T_EN = {
   "Probe-Schalter": "Probe switch", "Position": "Position", "Offsets x / y / z": "Offsets x / y / z",
   "am Toolhead": "on toolhead", "im Dock": "docked", "Home": "Home", "Andocken": "Attach", "Ablegen": "Detach", "Prüfen": "Check",
   "Samples": "Samples", "z_offset messen": "Measure z_offset",
-  "Erst Z-Endstop-Papiertest, dann z_offset messen. Ergebnis ≈ 0 heißt: passt.": "Paper test the Z endstop first, then measure z_offset. A result of ≈ 0 means it fits.",
   "sehr gut": "very good", "brauchbar": "usable", "zu ungenau": "too inaccurate",
   "Genauigkeit <b>{txt}</b> – Spanne {r} mm, Std.-Abw. {sd} mm": "Accuracy <b>{txt}</b> – range {r} mm, std. dev. {sd} mm",
   "Gemessen z = {z} mm – z_offset passt.": "Measured z = {z} mm – z_offset is fine.",
@@ -505,7 +595,7 @@ const T_EN = {
   "Profil <b>{p}</b> · Spanne <b>{r} mm</b> · hinten oben": "Profile <b>{p}</b> · range <b>{r} mm</b> · rear on top",
   "Profil „{p}“ löschen?": "Delete profile “{p}”?",
   // Calibration
-  "Kalibrierung": "Calibration", "Bett °C": "Bed °C", "Soak (min)": "Soak (min)", "Mesh-Profil": "Mesh profile",
+  "Kalibrierung": "Calibration", "Bett °C": "Bed °C", "Mesh-Profil": "Mesh profile",
   "Schrauben": "Screws", "Mesh": "Mesh", "Komplett-Kalibrierung": "Full calibration", "Z-Endstop (Papiertest)": "Z endstop (paper test)",
   // Settings
   "Einstellungen": "Settings", "Probe-Pin": "Probe pin", "Geschwindigkeit": "Speed", "Klipper-Meldungen": "Klipper messages",
@@ -597,6 +687,39 @@ const T_EN = {
   "Vorher (A)": "Before (A)", "Nachher (B)": "After (B)",
   "Unterschiedliche Mesh-Größe oder Fläche (z. B. adaptives Mesh) – nicht vergleichbar.": "Different mesh size or area (e.g. adaptive mesh) – not comparable.",
   "Änderung B − A: <b>{lo}</b> bis <b>{hi}</b> mm · hinten oben": "Change B − A: <b>{lo}</b> to <b>{hi}</b> mm · rear on top",
+  // Modes, control, setup status
+  "Bedienen": "Operate", "Einrichten & Kalibrieren": "Setup & calibration", "Steuerung": "Control", "Letzte Meldung": "Last message",
+  "Vor dem Druck": "Before printing", "Schrauben prüfen": "Check screws", "Durchwärmen": "Heat soak",
+  "Komplett-Kalibrierung: homen, Bett heizen und durchwärmen, Schrauben prüfen (stoppt bei schiefem Bett), Mesh messen, Probe ablegen.":
+    "Full calibration: home, heat and soak the bed, check the screws (stops if the bed is not level), measure the mesh, dock the probe.",
+  "Pin-Prüfung": "Pin check", "Einstellungsdatei": "Settings file", "Probe testen": "Probe tests", "Genauigkeit messen": "Measure accuracy",
+  "Misst mehrmals an derselben Stelle. Spanne unter 0,01 mm ist sehr gut.": "Probes the same spot several times. A range below 0.01 mm is very good.",
+  "Erste Schicht: Z-Endstop und z_offset": "First layer: Z endstop and z_offset",
+  "Erst der Papiertest am Referenzpunkt, danach z_offset prüfen. Ergebnis ≈ 0 heißt: passt. Nach jeder Drehung an einer Bettschraube wiederholen.":
+    "Paper test at the reference point first, then check z_offset. A result of ≈ 0 means it fits. Repeat after every turn of a bed screw.",
+  "1 · Z-Endstop (Papiertest)": "1 · Z endstop (paper test)", "2 · z_offset messen": "2 · Measure z_offset",
+  "Spanne": "range", "keins geladen": "none loaded",
+  "gehomed": "homed", "nicht gehomed": "not homed", "ist dran": "attached", "aus dem Dock": "from the dock", "ist im Dock": "docked",
+  "ins Dock": "into the dock", "Pin lesen": "read pin", "noch keins": "none yet", "noch nicht": "not yet", "ok": "ok", "kalt": "cold", "läuft …": "running …",
+  "an – jede Dock-Fahrt wird geprüft": "on – every dock move is checked", "aus – keine Prüfung, keine Wiederholung": "off – no check, no retry",
+  "hinten links": "rear left", "hinten rechts": "rear right", "ZeroClick-Beispiel": "ZeroClick sample", "eigene Wegpunkte": "custom waypoints",
+  "1 Wiederholversuch": "1 retry", "{n} Wiederholversuche": "{n} retries", "ältere Version – einmal speichern": "older version – save once", "aktuell": "up to date",
+  "Druck läuft – Probe-Befehle sind gesperrt.": "Printing – probe commands are locked.",
+  "Die Probe hängt am Toolhead. Vor dem Druck ablegen.": "The probe is attached to the toolhead. Dock it before printing.",
+  "Probe-Status unbekannt – „Prüfen“ liest den Probe-Pin.": "Probe state unknown – “Check” reads the probe pin.",
+  "Einrichtung: {d} von {n} Schritten erledigt.": "Setup: {d} of {n} steps done.", "Zur Einrichtung": "Go to setup",
+  "Der Druckschutz ist nicht aktiv – PROBE_GUARD fehlt in PRINT_START.": "The print guard is not active – PROBE_GUARD is missing in PRINT_START.",
+  "Mehr dazu": "Learn more", "Probe im Dock – bereit zum Drucken.": "Probe docked – ready to print.", "Zu den Einstellungen": "Go to settings",
+  "Probe an- und ablegen, Mesh und Schrauben prüfen, vor dem Druck kalibrieren – alles für den Alltag.":
+    "Attach and dock the probe, check mesh and screws, calibrate before printing – everything for daily use.",
+  "Einrichtung, Tests, Papiertest, z_offset und Einstellungen. Der Drucker bewegt sich hier – erst lesen, dann drücken.":
+    "Setup, tests, paper test, z_offset and settings. The printer moves here – read first, then press.",
+  "Homen": "Home all axes", "Bett auf {b} °C heizen": "Heat the bed to {b} °C", " und {m} min durchwärmen": " and soak for {m} min",
+  ", danach Z neu homen": ", then home Z again",
+  "Bettschrauben prüfen – stoppt, wenn das Bett schiefer als {d} mm ist": "Check the bed screws – stops if the bed is off by more than {d} mm",
+  "Mesh messen (Profil „{p}“)": "Measure the mesh (profile “{p}”)", "Probe ablegen": "Dock the probe",
+  "Das Mesh bleibt nach einem Neustart nur mit Save Config erhalten – der Hinweis dazu erscheint oben.":
+    "The mesh only survives a restart after Save Config – a notice appears at the top.",
   // Paper test
   "Papiertest": "Paper test",
   // Console
@@ -1050,17 +1173,20 @@ async function runUpdate() {
 // =====================================================================
 async function gcode(script) {
   log("> " + script, "cmd");
-  busy++; render();
+  busy++; RUNNING.push(script); render();
   try { await rpc("printer.gcode.script", { script }); }
   catch (e) { log("!! " + e.message, "e"); onError(e.message); }
-  finally { busy--; render(); }
+  finally { busy--; RUNNING.splice(RUNNING.indexOf(script), 1); render(); }
 }
 
 const ACC = { run: false, samples: [], result: null };
 let lastZ = null;
+let LASTMSG = null;
+const MSG_RE = /^(?:Probe |ACHTUNG|WARNING|PROBE_GUARD|Mesh range|Mesh-Spanne|Dock test|Dock-Test|Screws ok|Schrauben ok|Bed not level|Bett schief|New z_offset|Neuer z_offset)/;
 function onResponse(raw) {
   const line = String(raw).replace(/^\/\/\s?/, "");      // Klipper-Infozeilen beginnen mit "// "
   log(line, line.startsWith("!!") ? "e" : "");
+  if (line.startsWith("!!") || MSG_RE.test(line)) { LASTMSG = { text: line.replace(/^!!\s*/, ""), err: line.startsWith("!!") }; render(); }
   if (/^PROBE_ACCURACY at /.test(line)) { ACC.run = true; ACC.samples = []; return; }
   let m = line.match(/(?:bed will contact at z=|^probe at [-\d.]+,[-\d.]+ is z=)(-?[\d.]+)/);
   if (m && ACC.run) { ACC.samples.push(+m[1]); return; }
@@ -1083,6 +1209,7 @@ function onResponse(raw) {
 }
 function onError(msg) {
   histSoon();
+  LASTMSG = { text: String(msg).replace(/^!!\s*/, ""), err: true }; render();
   if (DT_RUNNING) $("dt-res").innerHTML = alertHTML("error", "mdiAlertCircleOutline", esc(t("Dock-Test abgebrochen: {m}", { m: msg })));
 }
 
@@ -1219,24 +1346,31 @@ function draw() {
     al.push(alertHTML("info", "mdiUpdate", esc(t("Update verfügbar: {v} ({n} neue Änderungen).", { v: UPD.remote_version || "", n })),
       btnHTML({ text: t("Jetzt aktualisieren"), color: "primary", id: "upd-run", cls: pr ? "v-btn--disabled" : "" }) + btnHTML({ text: t("Update-Manager"), variant: "text", color: "primary", id: "upd-open" })));
   }
-  if (ED && ED.schema < SCHEMA) al.push(alertHTML("info", "mdiInformationOutline", esc(t("Neue Einstellungsfelder verfügbar. Unter Einstellungen einmal speichern, um sie zu ergänzen."))));
+  if (ED && ED.schema < SCHEMA) al.push(alertHTML("info", "mdiInformationOutline", esc(t("Neue Einstellungsfelder verfügbar. Unter Einstellungen einmal speichern, um sie zu ergänzen.")),
+    btnHTML({ text: t("Zu den Einstellungen"), variant: "text", color: "primary", cls: "go-setup", data: { to: "settings" } })));
   const alHTML = al.join("");
   if ($("alerts").dataset.h !== alHTML) { $("alerts").innerHTML = alHTML; $("alerts").dataset.h = alHTML; bindAlerts(); }
 
-  // probe state
+  // probe state (Steuerung and Probe testen)
   const att = (S["gcode_macro _PROBE_STATE"] || {}).attached;
-  $("s-probe").innerHTML = att === undefined ? "–" : att ? `<span class="chip warning--text">${esc(t("am Toolhead"))}</span>` : `<span class="chip success--text">${esc(t("im Dock"))}</span>`;
+  setSt("probe", att === undefined ? "–" : att ? `<span class="chip warning--text">${esc(t("am Toolhead"))}</span>` : `<span class="chip success--text">${esc(t("im Dock"))}</span>`);
   const lq = (S.probe || {}).last_query;
-  $("s-pin").textContent = lq === undefined ? "–" : lq ? "TRIGGERED" : "open";
-  const th = S.toolhead || {}, pos = livePos();
-  $("s-pos").textContent = (th.homed_axes || "").length === 3 && pos ? `X ${f1(pos[0])}  Y ${f1(pos[1])}  Z ${dec(Number(pos[2]).toFixed(2))}` : t("Nicht gehomed");
+  setSt("pin", lq === undefined ? "–" : lq ? "TRIGGERED" : "open");
+  const th = S.toolhead || {}, pos = livePos(), homed = (th.homed_axes || "").length === 3;
+  setSt("pos", esc(homed && pos ? `X ${f1(pos[0])}  Y ${f1(pos[1])}  Z ${dec(Number(pos[2]).toFixed(2))}` : t("Nicht gehomed")));
   const p = CFG.probe || {};
   $("s-off").textContent = p.x_offset !== undefined ? `${dec(p.x_offset)} / ${dec(p.y_offset)} / ${dec(p.z_offset)}` : "–";
-  drawGuard();
+  const bm = S.bed_mesh || {}, mm = bm.probed_matrix, hasMesh = !!(mm && mm.length > 1 && mm[0].length > 1);
+  const range = hasMesh ? Math.max(...mm.flat()) - Math.min(...mm.flat()) : 0;
+  setSt("mesh", hasMesh ? esc(`${bm.profile_name || "–"} · ${t("Spanne")} ${dec(range.toFixed(3))} mm`) : `<span class="muted">${esc(t("keins geladen"))}</span>`);
+  setSt("msg", LASTMSG ? `<span class="${LASTMSG.err ? "error--text" : ""}">${esc(LASTMSG.text)}</span>` : "–");
+  const guardOn = drawGuard();
+  drawSetupStatus();
 
   const lock = !ready || pr || busy > 0;
   document.querySelectorAll(".act").forEach((b) => setDis(b, lock));
-  const homed = (th.homed_axes || "").length === 3;
+  drawTiles(att, lq, homed, hasMesh, range);
+  drawOpHint(att, pr, guardOn);
   document.querySelectorAll(".jg").forEach((b) => setDis(b, lock || (!homed && !b.dataset.home)));
   document.querySelectorAll(".pos").forEach((b) => setDis(b, !homed || !pos));
   setDis($("ed-save"), !ED || !ready || pr || busy > 0);
@@ -1262,9 +1396,78 @@ function drawGuard() {
   const html = !key ? `<span class="muted">${esc(t("kein {m}-Makro", { m: name }))}</span>`
     : on ? `<span class="chip success--text">${esc(t("aktiv in {m}", { m: name }))}</span>`
     : `<span class="chip warning--text">${esc(t("nicht in {m}", { m: name }))}</span>`;
-  if ($("s-guard").dataset.h !== html) { $("s-guard").innerHTML = html; $("s-guard").dataset.h = html; }
+  setSt("guard", html);
   const hint = !installed || on ? "" : t("PROBE_GUARD in {m} prüft vor jedem Druck, dass die Probe im Dock ist, und legt sie notfalls ab. ./install.sh fügt die Zeile auf Wunsch ein.", { m: name });
   $("guard-hint").textContent = hint; $("guard-hint").classList.toggle("hide", !hint);
+  return key ? !!on : null;
+}
+
+/* write the same status into every cell with data-st="…" (Steuerung, Probe testen, Einrichtung) */
+function setSt(k, html) {
+  document.querySelectorAll(`[data-st="${k}"]`).forEach((el) => { if (el.dataset.h !== html) { el.innerHTML = html; el.dataset.h = html; } });
+}
+const chipHTML = (txt, cls) => `<span class="chip ${cls}">${esc(txt)}</span>`;
+
+/* setup panel: what the installation looks like */
+const LAYOUT_SHORT = { "right-front": "hinten links", "left-front": "hinten rechts", zeroclick: "ZeroClick-Beispiel", custom: "eigene Wegpunkte" };
+function drawSetupStatus() {
+  const v = S["gcode_macro _PROBE_VARS"];
+  const set = (id, html) => { const el = $(id); if (el.dataset.h !== html) { el.innerHTML = html; el.dataset.h = html; } };
+  if (!v) { set("su-verify", "–"); set("su-dock", "–"); }
+  else {
+    set("su-verify", v.verify ? chipHTML(t("an – jede Dock-Fahrt wird geprüft"), "success--text") : chipHTML(t("aus – keine Prüfung, keine Wiederholung"), "warning--text"));
+    const P = dockPaths(v), n = v.retries === undefined ? 1 : +v.retries;
+    set("su-dock", esc(`${t(LAYOUT_SHORT[P.layout] || LAYOUT_SHORT.custom)} · ${t(n === 1 ? "1 Wiederholversuch" : "{n} Wiederholversuche", { n })}`));
+  }
+  set("su-file", !ED ? "–" : ED.schema < SCHEMA ? chipHTML(t("ältere Version – einmal speichern"), "warning--text") : chipHTML(t("aktuell"), "success--text"));
+}
+
+/* action tiles: state chip, running command, suggested action */
+const RUNNING = [];
+function calOpts() {
+  const n = (id, d) => { const v = parseInt($(id).value, 10); return isFinite(v) ? Math.max(0, v) : d; };
+  return { bed: n("cal-bed", 0), soak: n("cal-soak", 0), prof: ($("cal-prof").value || "default").replace(/[^\w-]/g, "") || "default",
+    screws: isChecked($("cal-screws")), mesh: isChecked($("cal-mesh")) };
+}
+function drawTiles(att, lq, homed, hasMesh, range) {
+  const res = (S.screws_tilt_adjust || {}).results || {}, others = Object.values(res).filter((r) => !r.is_base);
+  const worst = others.reduce((w, r) => (!w || adjMin(r.adjust) > adjMin(w.adjust) ? r : w), null);
+  const c = calOpts();
+  const chips = {
+    home: homed ? t("gehomed") : t("nicht gehomed"),
+    attach: att === true ? t("ist dran") : t("aus dem Dock"),
+    detach: att === false ? t("ist im Dock") : t("ins Dock"),
+    check: lq === undefined ? t("Pin lesen") : lq ? "TRIGGERED" : "open",
+    mesh: hasMesh ? `${dec(range.toFixed(3))} mm` : t("noch keins"),
+    screws: !Object.keys(res).length ? t("noch nicht") : worst && adjMin(worst.adjust) > 0 ? `${worst.sign === "CW" ? "↻" : "↺"} ${worst.adjust}` : t("ok"),
+    cal: (c.bed > 0 ? `${c.bed} °C` + (c.soak > 0 ? ` · ${c.soak} min` : "") : t("kalt")),
+  };
+  document.querySelectorAll(".tile[data-tile]").forEach((b) => {
+    const k = b.dataset.tile, running = RUNNING.some((r) => r.includes(b.dataset.run));
+    const txt = running ? t("läuft …") : chips[k] || "";
+    const ce = b.querySelector(".tile-c");
+    if (ce.textContent !== txt) ce.textContent = txt;
+    b.classList.toggle("run", running);
+    b.classList.toggle("sug", !running && k === "detach" && att === true);
+  });
+  document.querySelectorAll("#bed-chips button").forEach((b) => b.classList.toggle("on", +b.dataset.bed === c.bed));
+}
+
+/* one hint with the most useful next step */
+function drawOpHint(att, pr, guardOn) {
+  const st = store.get("setup", {}), done = STEPS.filter((s) => st[s.id]).length;
+  let h = null;
+  if (klippy !== "ready" || !installed) h = null;
+  else if (pr) h = ["info", "mdiInformationOutline", "Druck läuft – Probe-Befehle sind gesperrt."];
+  else if (att === true) h = ["warning", "mdiAlertOutline", "Die Probe hängt am Toolhead. Vor dem Druck ablegen."];
+  else if (att === undefined) h = ["info", "mdiInformationOutline", "Probe-Status unbekannt – „Prüfen“ liest den Probe-Pin."];
+  else if (done < STEPS.length) h = ["info", "mdiInformationOutline", t("Einrichtung: {d} von {n} Schritten erledigt.", { d: done, n: STEPS.length }), "Zur Einrichtung"];
+  else if (guardOn === false) h = ["info", "mdiInformationOutline", "Der Druckschutz ist nicht aktiv – PROBE_GUARD fehlt in PRINT_START.", "Mehr dazu"];
+  else h = ["success", "mdiCheckCircle", "Probe im Dock – bereit zum Drucken."];
+  const html = !h ? "" : `${icon(h[1], h[0] + "--text")}<div><div>${esc(t(h[2]))}</div>` +
+    (h[3] ? btnHTML({ text: esc(t(h[3])), variant: "text", color: "primary", cls: "go-setup px-0", icon: "mdiArrowRight", data: { to: "setup" } }) : "") + `</div>`;
+  const el = $("op-hint");
+  if (el.dataset.h !== html) { el.innerHTML = html; el.dataset.h = html; }
 }
 
 function bindAlerts() {
@@ -2397,7 +2600,7 @@ function setLang(l, persist) {
   buildJog(); buildPaperButtons();
   if (lastAvail) buildNav(lastAvail);
   if (ED) { readEditor(); fillEditor(); }
-  drawHistory();
+  drawHistory(); drawBedChips(); showModeHint();
   fixLegends(); moveSlider();
   render();
 }
@@ -2427,8 +2630,17 @@ document.addEventListener("click", async (e) => {
     if (!nowClosed) { fixLegends(p); moveSlider(); }
     return;
   }
+  const mb = e.target.closest(".mode[data-mode]");
+  if (mb) return setMode(mb.dataset.mode);
+  const gs = e.target.closest(".go-setup");
+  if (gs) return goSetup(gs.dataset.to || "setup");
   const chk = e.target.closest("[data-check]");
-  if (chk) { setCheck(chk, !isChecked(chk)); if (ED && chk.dataset.k) { readEditor(); updatePreview(); } return; }
+  if (chk) {
+    setCheck(chk, !isChecked(chk));
+    if (ED && chk.dataset.k) { readEditor(); updatePreview(); }
+    if (/^cal-/.test(chk.id || "")) { saveCal(); render(); }
+    return;
+  }
   const jb = e.target.closest(".jg");
   if (jb && !jb.disabled) {
     const ax = jb.dataset.j, d = +jb.dataset.d;
@@ -2457,6 +2669,7 @@ document.addEventListener("click", async (e) => {
 });
 
 document.addEventListener("input", (e) => {
+  if (/^cal-/.test(e.target.id || "")) { saveCal(); render(); return; }
   if (!ED || !e.target.closest(".panel[data-p=settings] .tab")) return;
   const prev = ED.model.dock_layout;
   readEditor();
@@ -2475,23 +2688,83 @@ document.addEventListener("focusout", (e) => {
   f.classList.remove("v-input--is-focused", "primary--text"); f.querySelector(".v-label")?.classList.remove("primary--text");
 });
 
-/* distribute panels over 1–3 columns like Mainsail's dashboard */
+/* distribute panels over 1–3 columns like Mainsail's dashboard;
+   two modes: "op" = everyday use, "setup" = setting up, testing and calibrating */
 const LAYOUTS = {
-  1: [["setup", "probe", "bed", "mesh", "cal", "settings", "docktest", "history"]],
-  2: [["setup", "probe", "docktest", "cal", "history"], ["bed", "mesh", "settings"]],
-  3: [["setup", "probe", "docktest"], ["bed", "mesh", "history"], ["cal", "settings"]],
+  op: {
+    1: [["control", "bed", "mesh", "history"]],
+    2: [["control", "history"], ["bed", "mesh"]],
+    3: [["control"], ["bed", "mesh"], ["history"]],
+  },
+  setup: {
+    1: [["setup", "probe", "docktest", "bed", "settings"]],
+    2: [["setup", "probe", "docktest"], ["bed", "settings"]],
+    3: [["setup", "docktest"], ["probe", "bed"], ["settings"]],
+  },
 };
-let curCols = 0;
-function layoutCols() {
+let MODE = (() => {
+  const m = store.get("mode", null);
+  if (m === "op" || m === "setup") return m;
+  return Object.values(store.get("setup", {})).some(Boolean) ? "op" : "setup";   // fresh install: start with the setup
+})();
+function setMode(m) {
+  MODE = m === "setup" ? "setup" : "op"; store.set("mode", MODE);
+  document.body.classList.toggle("mode-setup", MODE === "setup"); document.body.classList.toggle("mode-op", MODE === "op");
+  document.querySelectorAll(".mode").forEach((b) => { b.classList.toggle("on", b.dataset.mode === MODE); b.setAttribute("aria-selected", String(b.dataset.mode === MODE)); });
+  showModeHint();
+  layoutCols(true);
+  render();
+}
+function showModeHint() {
+  $("mode-hint").textContent = MODE === "op"
+    ? t("Probe an- und ablegen, Mesh und Schrauben prüfen, vor dem Druck kalibrieren – alles für den Alltag.")
+    : t("Einrichtung, Tests, Papiertest, z_offset und Einstellungen. Der Drucker bewegt sich hier – erst lesen, dann drücken.");
+}
+/* jump to a panel of the setup mode (from hints and notices) */
+function goSetup(panel) {
+  if (MODE !== "setup") setMode("setup");
+  setTimeout(() => { const el = document.querySelector(`.panel[data-p="${panel}"]`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
+}
+let curCols = 0, curMode = "";
+function layoutCols(force) {
   const w = window.innerWidth, n = w >= 1904 ? 3 : w >= 960 ? 2 : 1;
-  if (n === curCols) return;
-  curCols = n;
-  LAYOUTS[n].forEach((ids, i) => ids.forEach((id) => { const p = document.querySelector(`.panel[data-p="${id}"]`); if (p) $("col" + (i + 1)).appendChild(p); }));
+  if (n === curCols && MODE === curMode && !force) return;
+  curCols = n; curMode = MODE;
+  const lay = LAYOUTS[MODE][n], shown = new Set(lay.flat());
+  document.querySelectorAll("#col1 > .panel, #col2 > .panel, #col3 > .panel").forEach((p) => p.classList.toggle("hide", !shown.has(p.dataset.p)));
+  lay.forEach((ids, i) => ids.forEach((id) => { const p = document.querySelector(`.panel[data-p="${id}"]`); if (p) $("col" + (i + 1)).appendChild(p); }));
   for (let i = 1; i <= 3; i++) {
     const c = $("col" + i);
     c.className = i > n ? "hide" : `col-12 col-md-${12 / n} pb-0`;
   }
-  requestAnimationFrame(() => { moveSlider(); if (ACC.samples.length) drawAccuracy(); if (HIST.loaded) drawHistory(); });
+  // panels that were hidden have no size yet: legends, tab slider and charts need a second pass
+  requestAnimationFrame(() => { fixLegends(); moveSlider(); if (ACC.samples.length) drawAccuracy(); if (HIST.loaded) drawHistory(); });
+}
+
+/* bed temperature presets for the full calibration; the options are remembered in this browser */
+const BED_PRESETS = [["kalt", 0], ["PLA", 60], ["PETG", 80], ["ABS/ASA", 100]];
+function drawBedChips() {
+  $("bed-chips").innerHTML = BED_PRESETS.map(([n, v]) => `<button type="button" data-bed="${v}" title="${v} °C">${esc(t(n))}</button>`).join("");
+}
+function saveCal() { store.set("cal", calOpts()); }
+function loadCal() {
+  const c = store.get("cal", null);
+  if (!c) return;
+  $("cal-bed").value = c.bed; $("cal-soak").value = c.soak; $("cal-prof").value = c.prof;
+  setCheck($("cal-screws"), c.screws !== false); setCheck($("cal-mesh"), c.mesh !== false);
+}
+async function runCalibrateAll() {
+  if ($("cal").disabled) return;
+  const c = calOpts(), dev = (S["gcode_macro _PROBE_VARS"] || {}).max_screw_dev;
+  const steps = [t("Homen"),
+    c.bed > 0 ? t("Bett auf {b} °C heizen", { b: c.bed }) + (c.soak > 0 ? t(" und {m} min durchwärmen", { m: c.soak }) : "") + t(", danach Z neu homen") : null,
+    c.screws ? t("Bettschrauben prüfen – stoppt, wenn das Bett schiefer als {d} mm ist", { d: dec(dev ?? 0.05) }) : null,
+    c.mesh ? t("Mesh messen (Profil „{p}“)", { p: c.prof }) : null,
+    t("Probe ablegen")].filter(Boolean);
+  const body = `<ol class="mb-3">${steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>` +
+    (c.mesh ? `<p class="mb-0 small muted">${esc(t("Das Mesh bleibt nach einem Neustart nur mit Save Config erhalten – der Hinweis dazu erscheint oben."))}</p>` : "");
+  if (!(await dialog(t("Komplett-Kalibrierung"), body, t("Starten")))) return;
+  gcode(`CALIBRATE_ALL BED=${c.bed} SOAK=${c.soak} SCREWS=${c.screws ? 1 : 0} MESH=${c.mesh ? 1 : 0} PROFILE=${c.prof}`);
 }
 
 let DT_RUNNING = false;
@@ -2502,14 +2775,11 @@ function wire() {
   $("estop").onclick = () => rpc("printer.emergency_stop").catch((e) => log("!! " + e.message, "e"));
   $("restart").onclick = async () => { if (await dialog(t("Neustart"), esc(t("Klipper per FIRMWARE_RESTART neu starten?")), t("Neustart"))) rpc("printer.firmware_restart").catch((e) => log("!! " + e.message, "e")); };
   $("acc").onclick = () => gcode(`PROBE_ACCURACY SAMPLES=${Math.max(3, parseInt($("acc-n").value) || 10)}`);
-  $("screws").onclick = () => gcode("BED_MESH_CLEAR\nSCREWS_TILT_CALCULATE");
+  $("screws").onclick = $("screws-setup").onclick = () => gcode("BED_MESH_CLEAR\nSCREWS_TILT_CALCULATE");
   $("mesh").onclick = () => gcode("BED_MESH_CALIBRATE");
   $("prof-save").onclick = () => { const n = ($("prof-name").value || "default").replace(/[^\w-]/g, "") || "default"; gcode(`BED_MESH_PROFILE SAVE="${n}"`); };
-  $("cal").onclick = () => {
-    const prof = ($("cal-prof").value || "default").replace(/[^\w-]/g, "") || "default";
-    gcode(`CALIBRATE_ALL BED=${parseInt($("cal-bed").value) || 0} SOAK=${parseInt($("cal-soak").value) || 0} ` +
-          `SCREWS=${isChecked($("cal-screws")) ? 1 : 0} MESH=${isChecked($("cal-mesh")) ? 1 : 0} PROFILE=${prof}`);
-  };
+  $("cal").onclick = () => runCalibrateAll();
+  $("bed-chips").onclick = (e) => { const b = e.target.closest("[data-bed]"); if (b) { $("cal-bed").value = b.dataset.bed; saveCal(); render(); } };
   $("dt-run").onclick = async () => {
     const n = Math.max(1, parseInt($("dt-n").value) || 3), f = Math.max(100, parseInt($("dt-f").value) || 1500);
     $("dt-res").innerHTML = ""; DT_RUNNING = true;
@@ -2539,9 +2809,9 @@ function wire() {
     try { if (window.top.dockprobeShowProbe) { window.top.dockprobeShowProbe(); history.back(); return; } } catch { /* foreign page */ }
   }
   expand();
-  buildJog(); buildPaperButtons(); drawHistory();
+  buildJog(); buildPaperButtons(); drawHistory(); drawBedChips(); loadCal();
   wire();
-  NAV.open = !isMobile(); layoutNav(); layoutCols();
+  NAV.open = !isMobile(); layoutNav(); setMode(MODE);
   const ok = await loadMainsailCss();
   if (!ok) applyColors("#2196f3");
   setTimeout(reveal, 4000);          // reveal after 4 s at the latest

@@ -51,8 +51,9 @@ probe on a printer that keeps its Z endstop.
   `PROBE_CALIBRATE`, which would drive a hanging probe into the bed.
 - **Installer** – analyses your config, calculates mesh bounds and screw points from the probe offsets, resolves
   conflicts (old macros, KAMP adaptive meshing), backs everything up and wires the UI into nginx, Mainsail and Moonraker.
-- **Probe page in Mainsail** – setup checklist, dock test, accuracy chart, live bed view, mesh profiles, a settings
-  editor and a history of all measurements over time, rendered with Mainsail's own stylesheet and your theme.
+- **Probe page in Mainsail** – two modes: **Operate** for everyday use (attach/dock, mesh, screws, full calibration,
+  history) and **Setup & calibration** for the checklist, tests, paper test, z_offset and the settings editor.
+  Rendered with Mainsail's own stylesheet and your theme.
 - **History** – accuracy, measured z_offset, bed screws, mesh range and Z endstop as trend charts, a comparison of two
   meshes, dock statistics and CSV export. Runs started from KlipperScreen, macros or `PRINT_START` are included.
 - **KlipperScreen menu (optional)** – the most important commands under *More → Probe*; removed again by the uninstaller.
@@ -173,7 +174,8 @@ If `z_offset` lives in the `SAVE_CONFIG` block it stays there – a second copy 
 
 ## First calibration
 
-Use the **Setup** checklist on the Probe page, or the console:
+Use the **Setup** checklist on the Probe page (mode *Setup & calibration*, opened automatically on a fresh install),
+or the console:
 
 1. `PROBE_STATUS` – the docked probe must be detected.
 2. `DOCK_TEST CYCLES=3 F=1500` – attach and detach slowly, hand on the emergency stop.
@@ -192,27 +194,48 @@ Open **Probe** in Mainsail's sidebar, or `http://<printer>/server/dockprobe/` (a
 The `/server/` path is deliberate: Mainsail's service worker does not intercept it, which matters when Mainsail is
 accessed via https.
 
+The page has two modes, switched at the top: **Operate** holds what you need day to day, **Setup & calibration**
+everything you do once or after changes – the printer moves there, so read first, then press. The mode is
+remembered per browser; a fresh install starts in *Setup & calibration*.
+
 <table>
 <tr>
-<td width="25%"><img src="docs/history.png" alt="History with trend charts and mesh comparison"></td>
-<td width="25%"><img src="docs/bed-view.png" alt="Live bed view with the probe attached"><br><br><img src="docs/paper-test.png" alt="Paper test dialog"></td>
-<td width="25%"><img src="docs/settings.png" alt="Settings editor, dock tab"></td>
-<td width="25%"><img src="docs/mobile.png" alt="Mobile layout"></td>
+<td width="34%"><img src="docs/control.png" alt="Control panel with action tiles"></td>
+<td width="33%"><img src="docs/history.png" alt="History with trend charts and mesh comparison"></td>
+<td width="33%"><img src="docs/bed-view.png" alt="Live bed view with the probe attached"><br><br><img src="docs/mobile.png" alt="Mobile layout" width="70%"></td>
 </tr>
 </table>
 
+**Operate**
+
 | Panel | What it does |
 |---|---|
-| **Setup** | the calibration steps in the right order; steps tick themselves off after a successful measurement |
-| **Probe** | state, pin, position, offsets and whether `PROBE_GUARD` is in `PRINT_START`; attach/detach; accuracy test with chart (deviation per sample in µm) and rating; z_offset check with **Apply** |
-| **Dock test** | `DOCK_TEST` with cycles and speed |
+| **Control** | probe state, switch, position, active mesh, print guard and the last message from the macros; tiles for **Home**, **Attach**, **Detach** and **Check** that show the current state and pulse while running; a hint with the next useful step (e.g. *dock the probe before printing*, or how far the setup is). **Before printing:** **Measure mesh**, **Check screws** and **Full calibration** (`CALIBRATE_ALL`) with bed temperature presets, heat-soak time, mesh profile and a summary of the steps before it starts |
 | **Bed & screws** | live view of nozzle and probe (in the dock or on the toolhead), dock, approach path, mesh area and Z0 point; screw results with turn direction and the previous measurement |
 | **Bed Mesh** | heat map of the active mesh; load, save and delete profiles |
 | **History** | trend charts for accuracy, measured z_offset, largest screw deviation, mesh range and Z endstop position (hover or arrow keys for details); counters for dock tests, retries, aborts and print-guard interventions; comparison of two meshes as a difference map; list of all entries; CSV export; time range 30 days / 90 days / 1 year / all |
-| **Calibration** | `CALIBRATE_ALL` with bed temperature, soak time, screws and mesh |
+
+![Setup & calibration mode](docs/setup.png)
+
+**Setup & calibration**
+
+| Panel | What it does |
+|---|---|
+| **Setup** | status of the installation (print guard, pin check, dock layout and retries, settings file) and the calibration steps in the right order; steps tick themselves off after a successful measurement |
+| **Probe tests** | state, pin, position and offsets; attach/detach; accuracy test with chart (deviation per sample in µm) and rating; Z endstop paper test and z_offset check with **Apply** |
+| **Dock test** | `DOCK_TEST` with cycles and speed |
+| **Bed & screws** | as above, with a **Measure screws** button for adjusting |
 | **Settings** | offsets, pin, dock position and layout (presets or own waypoints), retries, screw positions, mesh and message language. Jog there and click to take over a position. Mesh bounds, probe points, reference point and the dock waypoints are recalculated live; saving shows a diff, keeps a `.bak` and restarts Klipper |
-| **Paper test** | opens automatically during `CALIBRATE_Z_ENDSTOP`, like Mainsail's dialog; keyboard: ↑/↓ ±0.05, Shift ±0.01, PgUp/PgDn ±0.1 |
-| **Console** | G-code input and responses |
+
+<table>
+<tr>
+<td width="50%"><img src="docs/settings.png" alt="Settings editor, dock tab"></td>
+<td width="50%"><img src="docs/paper-test.png" alt="Paper test dialog"></td>
+</tr>
+</table>
+
+In both modes: the **Paper test** dialog opens automatically during `CALIBRATE_Z_ENDSTOP`, like Mainsail's (keyboard:
+↑/↓ ±0.05, Shift ±0.01, PgUp/PgDn ±0.1), and the **Console** at the bottom takes G-code and shows the responses.
 
 **Look and feel:** the page loads the stylesheets of your installed Mainsail at runtime and follows its theme
 (e.g. *Voron Design*), primary and logo colour, light/dark mode, icons-only navigation and everything in
