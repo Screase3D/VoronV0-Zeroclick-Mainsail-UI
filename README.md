@@ -99,7 +99,7 @@ calibration. It is one include line plus a symlink; the uninstaller removes both
 
 Updates appear in Mainsail under **Machine → Update Manager**; your `probe_dock_settings.cfg` is never overwritten.
 If an update adds new settings, the Probe page offers to add them. `./uninstall.sh` removes everything the installer
-added and can restore the sections it commented out.
+added, restores the sections it commented out and lists what it deliberately left (your settings, backups).
 
 ## Troubleshooting
 

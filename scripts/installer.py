@@ -1042,6 +1042,11 @@ def navi_remove(env, ops):
         ops.write(navi, json.dumps(rest, indent=2, ensure_ascii=False) + "\n")
     else:
         ops.remove(navi)
+        try:
+            if not ops.dry and not any(navi.parent.iterdir()):
+                navi.parent.rmdir()
+        except OSError:
+            pass
     ok("Menüeintrag entfernt")
 
 
@@ -1378,7 +1383,7 @@ def do_install(env, A, args, ops, asker):
 def do_uninstall(env, A, args, ops, asker):
     head("Deinstallation")
     if not asker.confirm("voron0-dockprobe entfernen?", True):
-        raise SystemExit("Abgebrochen.")
+        raise SystemExit(tr("Abgebrochen."))
     b = backup(env, ops)
     ok(f"Backup: {b}")
     cfg = env["cfg"]
@@ -1391,6 +1396,10 @@ def do_uninstall(env, A, args, ops, asker):
         if asker.confirm(f"{SETTINGS_NAME} löschen? (Nein = behalten für spätere Neuinstallation)", False):
             ops.remove(cfg / SETTINGS_NAME)
             ok(f"{SETTINGS_NAME} gelöscht")
+            bak = cfg / f"{SETTINGS_NAME}.bak"            # left by "Save" on the Probe page
+            if bak.exists():
+                ops.remove(bak)
+                ok(f"{bak.name} gelöscht")
     if asker.confirm("Vom Installer auskommentierte Sections wiederherstellen?", True):
         uncomment_all(cfg, ops)
     guard_remove(cfg, ops)
@@ -1398,9 +1407,48 @@ def do_uninstall(env, A, args, ops, asker):
     nginx_remove(env, ops)
     navi_remove(env, ops)
     um_changed = um_remove(env, ops)
+    history_kept = history_remove(ops, asker)
     if not args.no_restart:
         restart_services(um_changed, ops)
     head("Fertig")
+    # what is deliberately left behind
+    left = []
+    if (cfg / SETTINGS_NAME).exists():
+        left.append(f"{SETTINGS_NAME} (deine Werte)")
+    for name, why in ((f"{SETTINGS_NAME}.bak", "Sicherung von der Probe-Seite"), ("printer.cfg.bak", "Sicherung von der Probe-Seite"),
+                      (f"{LOGIC_NAME}.old", "alte Version von vor der Installation")):
+        if (cfg / name).exists():
+            left.append(f"{name} ({why})")
+    if (env["home"] / "dockprobe-backups").is_dir():
+        left.append("~/dockprobe-backups/ (Backups)")
+    if history_kept:
+        left.append("Verlauf in der Moonraker-Datenbank")
+    left.append(f"{REPO_DIR} (Repo-Ordner)")
+    info("Nicht entfernt – bei Bedarf von Hand löschen:")
+    for x in left:
+        info("  " + x)
+
+
+def history_remove(ops, asker):
+    """history of the Probe page in Moonraker's database; True if it is still there"""
+    try:
+        api("GET", "/server/database/item?namespace=dockprobe&key=history")
+    except urllib.error.HTTPError:
+        return False                                    # no history
+    except (urllib.error.URLError, OSError, ValueError):
+        return False                                    # Moonraker not reachable – nothing to say
+    if not asker.confirm("Verlauf der Probe-Seite (Moonraker-Datenbank) löschen?", False):
+        return True
+    if ops.dry:
+        info(c("2", "[dry-run] Verlauf löschen"))
+        return True
+    try:
+        api("DELETE", "/server/database/item?namespace=dockprobe&key=history")
+        ok("Verlauf gelöscht")
+        return False
+    except (urllib.error.URLError, OSError, ValueError):
+        warn("Verlauf konnte nicht gelöscht werden")
+        return True
 
 
 def main():

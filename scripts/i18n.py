@@ -106,6 +106,13 @@ PHRASES = [
     ("KlipperScreen bitte neu starten, damit die Änderung wirkt", "Please restart KlipperScreen to apply the change"),
     ("KlipperScreen-Menü eingebunden (Mehr → Probe)", "KlipperScreen menu added (More → Probe)"),
     ("KlipperScreen-Menü entfernt", "KlipperScreen menu removed"),
+    ("Verlauf der Probe-Seite (Moonraker-Datenbank) löschen?", "Delete the Probe page history (Moonraker database)?"),
+    ("Verlauf gelöscht", "History deleted"), ("Verlauf konnte nicht gelöscht werden", "History could not be deleted"),
+    ("[dry-run] Verlauf löschen", "[dry-run] delete history"),
+    ("Nicht entfernt – bei Bedarf von Hand löschen:", "Not removed – delete by hand if you like:"),
+    ("(deine Werte)", "(your values)"), ("(Sicherung von der Probe-Seite)", "(backup from the Probe page)"),
+    ("(alte Version von vor der Installation)", "(old version from before the installation)"), ("(Backups)", "(backups)"),
+    ("Verlauf in der Moonraker-Datenbank", "history in Moonraker's database"), ("(Repo-Ordner)", "(repo folder)"),
     ("KlipperScreen-Menü auf die Sprache der Klipper-Meldungen umgestellt (wirkt nach Neustart von KlipperScreen)",
      "KlipperScreen menu switched to the language of the Klipper messages (applies after restarting KlipperScreen)"),
     ("PROBE_GUARD vorhanden", "PROBE_GUARD present"), ("PROBE_GUARD fehlt", "PROBE_GUARD missing"),
@@ -189,6 +196,7 @@ RULES = [
     (r"\(Probe (\d+) mm neben der Schraube\)", r"(probe \1 mm away from the screw)"),
     (r"^(\S+): PROBE_GUARD nach „(.*)“ einfügen \((.*)\)$", r"\1: insert PROBE_GUARD after “\2” (\3)"),
     (r"^PROBE_GUARD aus (\S+) entfernt$", r"PROBE_GUARD removed from \1"),
+    (r"^Auskommentierte Zeilen in (\S+) wiederhergestellt$", r"Restored commented lines in \1"),
 ]
 
 # single words only replaced as whole values at the end of a line

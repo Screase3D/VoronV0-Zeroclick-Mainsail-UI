@@ -259,9 +259,10 @@ info_tags:
 
 `./uninstall.sh` removes the includes, the symlink, the `PROBE_GUARD` line it added, the KlipperScreen menu, the nginx
 entry, the menu entry and the update manager section, and – on request – restores the sections the installer commented
-out. `probe_dock_settings.cfg` is kept unless you choose to delete it. Backups stay in `~/dockprobe-backups/`; delete
-them and the repo folder by hand. The history stays in Moonraker's database – clear it in the History panel first if
-you want it gone.
+out. It asks before deleting your `probe_dock_settings.cfg` (with its `.bak` from the Probe page) and the history in
+Moonraker's database – keep both for a later reinstall. At the end it lists what is left: the backups in
+`~/dockprobe-backups/`, a `printer.cfg.bak` if the Probe page saved z_offset there, an old `probe_dock.cfg.old` and
+the repo folder.
 
 ## Troubleshooting
 
